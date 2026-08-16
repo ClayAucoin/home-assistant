@@ -1,0 +1,7 @@
+name: "HA SmartThings Bridge"
+packageKey: "clay.ha-smartthings-bridge"
+description: "Local Home Assistant to SmartThings bridge"
+vendorSupportInformation: "Clay"
+permissions:
+  lan: {}
+  discovery: {}

@@ -1,0 +1,2779 @@
+ #include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoOTA.h>
+#include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#include <Preferences.h>
+
+// ============================================================
+// OFFICE SIGN - FIRMWARE
+// ============================================================
+
+const char* FIRMWARE_VERSION = "v1.6.0";
+const char* DEVICE_NAME      = "office-sign";
+
+// ============================================================
+// NETWORK SETTINGS
+// ============================================================
+
+// KEEP YOUR EXISTING VALUES HERE
+const char* WIFI_SSID     = "CrazyLink";
+const char* WIFI_PASSWORD = "sO4.887.i77G";
+
+const char* MQTT_SERVER   = "192.168.1.79";
+const int   MQTT_PORT     = 1883;
+const char* MQTT_USER     = "office_sign";
+const char* MQTT_PASSWORD = "^23^v9ZBHc3c4^5";
+
+// ============================================================
+// MQTT TOPICS
+// ============================================================
+
+const char* MQTT_MESSAGE_TOPIC = "office/sign/message";
+const char* MQTT_STATUS_TOPIC = "office/sign/status";
+const char* MQTT_BRIGHTNESS_TOPIC = "office/sign/config/brightness";
+const char* MQTT_VERSION_TOPIC = "office/sign/diagnostics/version";
+const char* MQTT_IP_TOPIC = "office/sign/diagnostics/ip";
+const char* MQTT_RSSI_TOPIC = "office/sign/diagnostics/rssi";
+const char* MQTT_UPTIME_TOPIC = "office/sign/diagnostics/uptime";
+const char* MQTT_MESSAGE_STATE = "office/sign/state/message";
+const char* MQTT_BRIGHTNESS_STATE = "office/sign/state/brightness";
+const char* MQTT_TEXT_COLOR_TOPIC = "office/sign/config/text_color";
+const char* MQTT_TEXT_COLOR_STATE = "office/sign/state/text_color";
+const char* MQTT_BORDER_COLOR_TOPIC = "office/sign/config/border_color";
+const char* MQTT_BORDER_COLOR_STATE = "office/sign/state/border_color";
+const char* MQTT_BORDER_WIDTH_TOPIC = "office/sign/config/border_width";
+const char* MQTT_BORDER_WIDTH_STATE = "office/sign/state/border_width";
+const char* MQTT_BACKGROUND_COLOR_TOPIC = "office/sign/config/background_color";
+const char* MQTT_BACKGROUND_COLOR_STATE = "office/sign/state/background_color";
+const char* MQTT_BACKGROUND_COLOR_POWER_TOPIC = "office/sign/config/background_color_power";
+const char* MQTT_TEXT_COLOR_POWER_TOPIC = "office/sign/config/text_color_power";
+const char* MQTT_BORDER_COLOR_POWER_TOPIC = "office/sign/config/border_color_power";
+const char* MQTT_SCROLL_SPEED_TOPIC = "office/sign/config/scroll_speed";
+const char* MQTT_SCROLL_SPEED_STATE = "office/sign/state/scroll_speed";
+const char* MQTT_DISPLAY_MODE_TOPIC = "office/sign/config/display_mode";
+const char* MQTT_DISPLAY_MODE_STATE = "office/sign/state/display_mode";
+const char* MQTT_TEXT_ALIGNMENT_TOPIC = "office/sign/config/text_alignment";
+const char* MQTT_TEXT_ALIGNMENT_STATE = "office/sign/state/text_alignment";
+const char* MQTT_RENDER_PRESET_TOPIC = "office/sign/config/render_preset";
+const char* MQTT_RENDER_MESSAGE_TOPIC = "office/sign/render_message";
+
+// Status preset editor
+const char* MQTT_PRESET_SELECT_TOPIC = "office/sign/preset/select";
+const char* MQTT_PRESET_SELECT_STATE = "office/sign/preset/state/select";
+const char* MQTT_PRESET_TEXT_COLOR_TOPIC = "office/sign/preset/text_color";
+const char* MQTT_PRESET_TEXT_COLOR_STATE = "office/sign/preset/state/text_color";
+const char* MQTT_PRESET_BORDER_COLOR_TOPIC = "office/sign/preset/border_color";
+const char* MQTT_PRESET_BORDER_COLOR_STATE = "office/sign/preset/state/border_color";
+const char* MQTT_PRESET_BACKGROUND_COLOR_TOPIC = "office/sign/preset/background_color";
+const char* MQTT_PRESET_BACKGROUND_COLOR_STATE = "office/sign/preset/state/background_color";
+const char* MQTT_PRESET_SAVE_TOPIC = "office/sign/preset/save";
+
+// Display power
+const char* MQTT_DISPLAY_POWER_TOPIC = "office/sign/config/display_power";
+const char* MQTT_DISPLAY_POWER_STATE = "office/sign/state/display_power";
+
+
+  // ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  
+  // ADD NEW MQTT TOPICS ABOVE HERE
+
+// ============================================================
+// DISPLAY SETTINGS
+// ============================================================
+
+uint8_t signBrightness = 40;
+
+// Border
+uint8_t borderWidth = 2;
+
+uint8_t borderRed   = 0;
+uint8_t borderGreen = 0;
+uint8_t borderBlue  = 255;
+
+uint8_t manualBorderRed   = 0;
+uint8_t manualBorderGreen = 0;
+uint8_t manualBorderBlue  = 255;
+
+// Background
+uint8_t backgroundRed   = 0;
+uint8_t backgroundGreen = 0;
+uint8_t backgroundBlue  = 0;
+
+uint8_t manualBackgroundRed   = 0;
+uint8_t manualBackgroundGreen = 0;
+uint8_t manualBackgroundBlue  = 0;
+
+// Text
+uint8_t textRed   = 255;
+uint8_t textGreen = 255;
+uint8_t textBlue  = 255;
+
+uint8_t manualTextRed   = 255;
+uint8_t manualTextGreen = 255;
+uint8_t manualTextBlue  = 255;
+
+const int CONTENT_LEFT  = 4;
+const int CONTENT_RIGHT = 61;
+const int CONTENT_WIDTH = CONTENT_RIGHT - CONTENT_LEFT + 1;
+
+// display mode
+String displayMode = "AUTO";
+String textAlignment = "CENTER";
+String renderPreset = "";
+String renderMessage = "";
+
+// ============================================================
+// SCROLLING
+// ============================================================
+
+bool scrolling = false;
+
+String scrollMessage = "";
+
+int scrollX = 0;
+int scrollTextWidth = 0;
+
+unsigned long lastScrollTime = 0;
+
+// Milliseconds between each 1-pixel movement.
+// Larger number = slower scrolling.
+unsigned long scrollInterval = 75;
+
+// scroll-speed
+uint8_t scrollSpeed = 6;
+
+// ============================================================
+// MATRIX
+// ============================================================
+
+#define PANEL_RES_X 64
+#define PANEL_RES_Y 32
+#define PANEL_CHAIN 1
+
+#define R1_PIN 5
+#define G1_PIN 4
+#define B1_PIN 6
+
+#define R2_PIN 15
+#define G2_PIN 7
+#define B2_PIN 17
+
+#define A_PIN 8
+#define B_PIN 18
+#define C_PIN 10
+#define D_PIN 9
+#define E_PIN 16
+
+#define LAT_PIN 11
+#define OE_PIN 13
+#define CLK_PIN 12
+
+MatrixPanel_I2S_DMA *display = nullptr;
+
+WiFiClient wifiClient;
+PubSubClient mqttClient(wifiClient);
+Preferences preferences;
+
+// ============================================================
+// STATE / TIMERS
+// ============================================================
+
+String currentMessage = "READY";
+
+unsigned long lastWiFiAttempt       = 0;
+unsigned long lastMQTTAttempt       = 0;
+unsigned long lastDiagnosticsUpdate = 0;
+
+const unsigned long WIFI_RETRY_INTERVAL = 10000;
+const unsigned long MQTT_RETRY_INTERVAL = 5000;
+const unsigned long DIAGNOSTIC_INTERVAL = 60000;
+
+bool settingsDirty = false;
+unsigned long settingsChangedTime = 0;
+const unsigned long SETTINGS_SAVE_DELAY = 2000;
+bool displayPower = true;
+
+struct RGBColor {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+};
+
+struct StatusPreset {
+  String name;
+  RGBColor text;
+  RGBColor border;
+  RGBColor background;
+};
+
+StatusPreset statusPresets[] = {
+  { "IN CLASS",       {255, 255, 255}, {255,   0,   0}, {0, 0, 0} },
+  { "VIDEO CALL",     {255, 255, 255}, {255,   0,   0}, {0, 0, 0} },
+  { "DO NOT DISTURB", {255, 255, 255}, {255,   0,   0}, {0, 0, 0} },
+  { "AVAILABLE",      {255, 255, 255}, {  0, 255,   0}, {0, 0, 0} },
+  { "BACK SOON",      {255, 255, 255}, {255, 255,   0}, {0, 0, 0} },
+  { "AWAY",           {255, 255, 255}, {  0,   0, 255}, {0, 0, 0} }
+};
+
+const uint8_t STATUS_PRESET_COUNT = sizeof(statusPresets) / sizeof(statusPresets[0]);
+
+// ============================================================
+// STATUS PRESET EDITOR
+// ============================================================
+
+// Preset currently selected for editing.
+uint8_t presetEditIndex = 0;
+
+// Temporary editing values.
+// These do not change the saved preset until Save Preset is used.
+RGBColor presetEditText = {255, 255, 255};
+RGBColor presetEditBorder = {255, 0, 0};
+RGBColor presetEditBackground = {0, 0, 0};
+
+void loadPresetIntoEditor(uint8_t index) {
+
+  if (index >= STATUS_PRESET_COUNT) {
+    return;
+  }
+
+  presetEditIndex = index;
+  presetEditText = statusPresets[index].text;
+  presetEditBorder = statusPresets[index].border;
+  presetEditBackground = statusPresets[index].background;
+}
+
+void publishPresetEditorState() {
+
+  if (!mqttClient.connected()) {
+    return;
+  }
+
+  // Selected preset
+  mqttClient.publish(
+    MQTT_PRESET_SELECT_STATE,
+    statusPresets[presetEditIndex].name.c_str(),
+    true
+  );
+
+  // Text color
+  String textColor =
+    String(presetEditText.r) + "," +
+    String(presetEditText.g) + "," +
+    String(presetEditText.b);
+
+  mqttClient.publish(
+    MQTT_PRESET_TEXT_COLOR_STATE,
+    textColor.c_str(),
+    true
+  );
+
+  mqttClient.publish(
+    "office/sign/preset/state/text_color_power",
+    "ON",
+    true
+  );
+
+  // Border color
+  String borderColor =
+    String(presetEditBorder.r) + "," +
+    String(presetEditBorder.g) + "," +
+    String(presetEditBorder.b);
+
+  mqttClient.publish(
+    MQTT_PRESET_BORDER_COLOR_STATE,
+    borderColor.c_str(),
+    true
+  );
+
+  mqttClient.publish(
+    "office/sign/preset/state/border_color_power",
+    "ON",
+    true
+  );
+
+  // Background color
+  String backgroundColor =
+    String(presetEditBackground.r) + "," +
+    String(presetEditBackground.g) + "," +
+    String(presetEditBackground.b);
+
+  mqttClient.publish(
+    MQTT_PRESET_BACKGROUND_COLOR_STATE,
+    backgroundColor.c_str(),
+    true
+  );
+
+  mqttClient.publish(
+    "office/sign/preset/state/background_color_power",
+    "ON",
+    true
+  );
+
+}
+
+int findStatusPreset(String name) {
+
+  name.trim();
+  name.toUpperCase();
+
+  for (uint8_t i = 0; i < STATUS_PRESET_COUNT; i++) {
+
+    if (name == statusPresets[i].name) {
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+bool applyStatusPreset(String message) {
+
+  int presetIndex = findStatusPreset(message);
+
+  if (presetIndex < 0) {
+    return false;
+  }
+
+  StatusPreset &preset = statusPresets[presetIndex];
+
+  textRed   = preset.text.r;
+  textGreen = preset.text.g;
+  textBlue  = preset.text.b;
+
+  borderRed   = preset.border.r;
+  borderGreen = preset.border.g;
+  borderBlue  = preset.border.b;
+
+  backgroundRed   = preset.background.r;
+  backgroundGreen = preset.background.g;
+  backgroundBlue  = preset.background.b;
+
+  return true;
+}
+
+void applyManualColors() {
+
+  textRed   = manualTextRed;
+  textGreen = manualTextGreen;
+  textBlue  = manualTextBlue;
+
+  borderRed   = manualBorderRed;
+  borderGreen = manualBorderGreen;
+  borderBlue  = manualBorderBlue;
+
+  backgroundRed   = manualBackgroundRed;
+  backgroundGreen = manualBackgroundGreen;
+  backgroundBlue  = manualBackgroundBlue;
+}
+
+// ============================================================
+// DISPLAY
+// ============================================================
+
+void drawBackground() {
+
+  uint16_t color = display->color565(
+    backgroundRed,
+    backgroundGreen,
+    backgroundBlue
+  );
+
+  display->fillScreen(color);
+}
+
+void drawBorder() {
+
+  if (borderWidth == 0) {
+    return;
+  }
+
+  // Prevent impossible widths.
+  uint8_t width = constrain(
+    borderWidth,
+    0,
+    15
+  );
+
+  uint16_t color = display->color565(
+    borderRed,
+    borderGreen,
+    borderBlue
+  );
+
+  // ----------------------------------------------------------
+  // TOP AND BOTTOM
+  // ----------------------------------------------------------
+
+  display->fillRect(
+    0,
+    0,
+    PANEL_RES_X,
+    width,
+    color
+  );
+
+  display->fillRect(
+    0,
+    PANEL_RES_Y - width,
+    PANEL_RES_X,
+    width,
+    color
+  );
+
+  // ----------------------------------------------------------
+  // LEFT PHYSICAL EDGE
+  //
+  // Because of the panel's one-column horizontal wrap:
+  //
+  // logical 1 -> physical 0
+  // logical 2 -> physical 1
+  // logical 3 -> physical 2
+  // etc.
+  // ----------------------------------------------------------
+
+  display->fillRect(
+    1,
+    width,
+    width,
+    PANEL_RES_Y - (width * 2),
+    color
+  );
+
+  // ----------------------------------------------------------
+  // RIGHT PHYSICAL EDGE
+  //
+  // Physical rightmost column is logical 0.
+  // Additional columns extend left from logical 63.
+  // ----------------------------------------------------------
+
+  if (width > 1) {
+
+    display->fillRect(
+      PANEL_RES_X - (width - 1),
+      width,
+      width - 1,
+      PANEL_RES_Y - (width * 2),
+      color
+    );
+  }
+
+  // Wrapped final physical column.
+  display->fillRect(
+    0,
+    width,
+    1,
+    PANEL_RES_Y - (width * 2),
+    color
+  );
+}
+
+void drawScrollFrame() {
+
+  drawBackground();
+
+  display->setFont();
+  display->setTextWrap(false);
+  display->setTextSize(1);
+
+  display->setTextColor(
+    display->color565(
+      textRed,
+      textGreen,
+      textBlue
+    )
+  );
+
+  // Draw scrolling text first.
+  display->setCursor(scrollX, 12);
+  display->print(scrollMessage);
+
+  // Draw border last so scrolling text
+  // disappears behind it.
+  drawBorder();
+}
+
+void showMessage(String message, bool updateCurrent = true) {
+
+  message.trim();
+  message.toUpperCase();
+
+  if (message.length() == 0) {
+    return;
+  }
+
+  if (updateCurrent) {
+    currentMessage = message;
+  }
+
+  // If a render preset was explicitly selected, use its colors
+  // regardless of the actual message text.
+  if (renderPreset.length() > 0) {
+
+    if (!applyStatusPreset(renderPreset)) {
+      applyManualColors();
+    }
+
+  } else {
+
+    // Normal behavior:
+  // A message matching a preset uses that preset.
+  // Everything else uses the manual/custom colors.
+    if (!applyStatusPreset(message)) {
+      applyManualColors();
+    }
+  }
+
+  if (!displayPower) {
+
+    scrolling = false;
+    scrollMessage = "";
+
+    display->clearScreen();
+
+    return;
+  }
+
+  // Stop any previous scrolling message.
+  scrolling = false;
+  scrollMessage = "";
+
+  // --------------------------------------------------
+  // FORCED SCROLL MODE
+  // --------------------------------------------------
+  if (displayMode == "SCROLL") {
+
+    scrollMessage = message;
+
+    // Default font is 6 pixels wide per character.
+    scrollTextWidth =
+      ((int)message.length() * 6) - 1;
+
+    // Start just inside the right side of the display.
+    scrollX = 61;
+
+    lastScrollTime = millis();
+    scrolling = true;
+
+    drawScrollFrame();
+
+    return;
+  }
+
+  // --------------------------------------------------
+  // FORCED SINGLE-LINE MODE
+  // --------------------------------------------------
+  if (displayMode == "SINGLE") {
+
+    drawBackground();
+
+    int textSize = 1;
+    int width = ((int)message.length() * 6) - 1;
+
+    // Use size 2 if the message fits.
+    int largeWidth =
+      ((int)message.length() * 12) - 2;
+
+    if (largeWidth <= 58) {
+      textSize = 2;
+      width = largeWidth;
+    }
+
+    // If it will not fit at size 1,
+    // keep it on one line and scroll it.
+    if (width > 58) {
+
+      scrollMessage = message;
+      scrollTextWidth = width;
+      scrollX = 61;
+
+      lastScrollTime = millis();
+      scrolling = true;
+
+      drawScrollFrame();
+
+      return;
+    }
+
+    display->setTextSize(textSize);
+    display->setTextColor(
+      display->color565(
+        textRed,
+        textGreen,
+        textBlue
+      )
+    );
+
+    int x = getAlignedX(width);
+
+    // Vertically center the built-in font.
+    int textHeight = 8 * textSize;
+    int y = (32 - textHeight) / 2;
+
+    display->setCursor(x, y);
+    display->print(message);
+
+    // Draw border last so text cannot overwrite it.
+    drawBorder();
+
+    return;
+  }
+
+  // --------------------------------------------------
+  // FORCED TWO-LINE MODE
+  // --------------------------------------------------
+  if (displayMode == "TWO LINE") {
+
+    drawBackground();
+
+    // Find the best space at which to split the message.
+    int bestSplit = -1;
+    int bestDifference = 9999;
+
+    for (int i = 0; i < (int)message.length(); i++) {
+
+      if (message.charAt(i) == ' ') {
+
+        String line1 = message.substring(0, i);
+        String line2 = message.substring(i + 1);
+
+        line1.trim();
+        line2.trim();
+
+        if (line1.length() == 0 || line2.length() == 0) {
+          continue;
+        }
+
+        int width1 =
+          ((int)line1.length() * 6) - 1;
+
+        int width2 =
+          ((int)line2.length() * 6) - 1;
+
+        // Both lines must fit inside the usable width.
+        if (width1 <= 58 && width2 <= 58) {
+
+          int difference = abs(width1 - width2);
+
+          if (difference < bestDifference) {
+            bestDifference = difference;
+            bestSplit = i;
+          }
+        }
+      }
+    }
+
+    // We found a usable two-line split.
+    if (bestSplit >= 0) {
+
+      String line1 =
+        message.substring(0, bestSplit);
+
+      String line2 =
+        message.substring(bestSplit + 1);
+
+      line1.trim();
+      line2.trim();
+
+      int width1 =
+        ((int)line1.length() * 6) - 1;
+
+      int width2 =
+        ((int)line2.length() * 6) - 1;
+
+      display->setTextSize(1);
+
+      display->setTextColor(
+        display->color565(
+          textRed,
+          textGreen,
+          textBlue
+        )
+      );
+
+      // First line
+      int x1 = getAlignedX(width1);
+
+      display->setCursor(
+        x1,
+        7
+      );
+
+      display->print(line1);
+
+      // Second line
+      int x2 = getAlignedX(width2);
+
+      display->setCursor(
+        x2,
+        18
+      );
+
+      display->print(line2);
+
+      drawBorder();
+
+      return;
+    }
+
+    // No valid two-line split was possible.
+    // Keep a single word centered if it fits.
+    int width =
+      ((int)message.length() * 6) - 1;
+
+    if (width <= 58) {
+
+      display->setTextSize(1);
+
+      display->setTextColor(
+        display->color565(
+          textRed,
+          textGreen,
+          textBlue
+        )
+      );
+
+      int x = getAlignedX(width);
+
+      display->setCursor(
+        x,
+        12
+      );
+
+      display->print(message);
+
+      drawBorder();
+
+      return;
+    }
+
+    // It cannot be split and cannot fit.
+    // Fall back to scrolling.
+    scrollMessage = message;
+    scrollTextWidth = width;
+    scrollX = 61;
+
+    lastScrollTime = millis();
+    scrolling = true;
+
+    drawScrollFrame();
+
+    return;
+  }
+
+
+  drawBackground();
+  drawBorder();
+
+  display->setFont();
+  display->setTextWrap(false);
+
+  display->setTextColor(
+    display->color565(
+      textRed,
+      textGreen,
+      textBlue
+    )
+  );
+
+  // ----------------------------------------------------------
+  // PANEL GEOMETRY
+  // ----------------------------------------------------------
+
+  const int contentLeft  = 4;
+  const int contentRight = 61;
+  const int contentWidth = 58;
+
+  // Require at least a little breathing room for small
+  // single-line text rather than filling all 58 pixels.
+  const int singleLineMaxWidth = 54;
+
+  // ----------------------------------------------------------
+  // HELPER: built-in font width
+  // ----------------------------------------------------------
+
+  auto textWidth = [](String text, int size) {
+
+    if (text.length() == 0) {
+      return 0;
+    }
+
+    return ((int)text.length() * 6 * size) - size;
+  };
+
+  // ----------------------------------------------------------
+  // EXPLICIT TWO-LINE MESSAGE
+  // ----------------------------------------------------------
+
+  int newlinePos = message.indexOf('\n');
+
+  if (newlinePos >= 0) {
+
+    String line1 = message.substring(0, newlinePos);
+    String line2 = message.substring(newlinePos + 1);
+
+    line1.trim();
+    line2.trim();
+
+    if (line1.length() > 0 && line2.length() > 0) {
+
+      int width1 = textWidth(line1, 1);
+      int width2 = textWidth(line2, 1);
+
+      // Respect an intentional newline when both lines fit.
+      if (width1 <= contentWidth && width2 <= contentWidth) {
+
+        display->setTextSize(1);
+
+        int x1 = getAlignedX(width1);
+        int x2 = getAlignedX(width2);
+
+        display->setCursor(x1, 7);
+        display->print(line1);
+
+        display->setCursor(x2, 18);
+        display->print(line2);
+
+        // Draw border last so text cannot overwrite it.
+        drawBorder();
+
+        return;
+      }
+    }
+  }
+
+  // ----------------------------------------------------------
+  // 1. TRY LARGE SINGLE LINE
+  // ----------------------------------------------------------
+
+  int largeWidth = textWidth(message, 2);
+
+  if (largeWidth <= contentWidth) {
+
+    display->setTextSize(2);
+
+    int x = getAlignedX(largeWidth);
+
+    display->setCursor(x, 9);
+    display->print(message);
+
+    return;
+  }
+
+  // ----------------------------------------------------------
+  // 2. TRY SMALL SINGLE LINE
+  // ----------------------------------------------------------
+
+  int smallWidth = textWidth(message, 1);
+
+  if (smallWidth <= singleLineMaxWidth) {
+
+    display->setTextSize(1);
+
+    int x = getAlignedX(smallWidth);
+
+    display->setCursor(x, 12);
+    display->print(message);
+
+    return;
+  }
+
+  // ----------------------------------------------------------
+  // 3. FIND BEST TWO-LINE SPLIT
+  // ----------------------------------------------------------
+
+  String line1 = "";
+  String line2 = "";
+
+  int bestDifference = 9999;
+
+  for (int i = 0; i < message.length(); i++) {
+
+    if (message.charAt(i) != ' ') {
+      continue;
+    }
+
+    String candidate1 =
+      message.substring(0, i);
+
+    String candidate2 =
+      message.substring(i + 1);
+
+    candidate1.trim();
+    candidate2.trim();
+
+    int width1 = textWidth(candidate1, 1);
+    int width2 = textWidth(candidate2, 1);
+
+    // Both lines must fit our content area.
+    if (
+      width1 <= contentWidth &&
+      width2 <= contentWidth
+    ) {
+
+      // Prefer the split that produces the
+      // most evenly sized two lines.
+      int difference =
+        abs(width1 - width2);
+
+      if (difference < bestDifference) {
+
+        bestDifference = difference;
+
+        line1 = candidate1;
+        line2 = candidate2;
+      }
+    }
+  }
+
+  // ----------------------------------------------------------
+  // 4. DISPLAY TWO LINES
+  // ----------------------------------------------------------
+
+  if (
+    line1.length() > 0 &&
+    line2.length() > 0
+  ) {
+
+    display->setTextSize(1);
+
+    int width1 = textWidth(line1, 1);
+    int width2 = textWidth(line2, 1);
+
+    int x1 = getAlignedX(width1);
+    int x2 = getAlignedX(width2);
+
+    display->setCursor(x1, 7);
+    display->print(line1);
+
+    display->setCursor(x2, 18);
+    display->print(line2);
+
+    return;
+  }
+
+  // ----------------------------------------------------------
+  // 5. SCROLLING FALLBACK
+  // ----------------------------------------------------------
+
+  scrollMessage = message;
+  scrollTextWidth = textWidth(message, 1);
+
+  // Start at the right side of our content area.
+  scrollX = 61;
+
+  lastScrollTime = millis();
+  scrolling = true;
+
+  drawScrollFrame();
+}
+
+void redrawCurrentDisplay() {
+
+  // If a temporary rendered message is active,
+  // redraw that without replacing the normal message.
+  if (renderMessage.length() > 0) {
+
+    showMessage(renderMessage, false);
+
+    return;
+  }
+
+  // Otherwise redraw the normal persistent message.
+  showMessage(currentMessage, false);
+}
+
+// --------------------------------------------------
+// TEXT ALIGNMENT
+// --------------------------------------------------
+
+int getAlignedX(int textWidth) {
+
+  // Physical content boundaries after accounting
+  // for the panel's one-column horizontal wrap.
+  //
+  // borderWidth 2:
+  // logical 1-2  = left border
+  // logical 3    = padding
+  // logical 4-61 = content
+  // logical 62   = padding
+  // logical 63,0 = right border
+
+  int leftX;
+  int rightX;
+
+  if (borderWidth > 0) {
+
+    leftX = borderWidth + 2;
+    rightX = PANEL_RES_X - borderWidth - 1;
+
+  } else {
+
+    // No border. Preserve one pixel of breathing room.
+    leftX = 1;
+    rightX = PANEL_RES_X - 2;
+  }
+
+  int availableWidth =
+    rightX - leftX + 1;
+
+  if (textAlignment == "LEFT") {
+    return leftX;
+  }
+
+  if (textAlignment == "RIGHT") {
+    return rightX - textWidth + 1;
+  }
+
+  // CENTER
+  return leftX +
+    ((availableWidth - textWidth) / 2);
+}
+
+// ============================================================
+// MQTT DIAGNOSTICS
+// ============================================================
+
+void publishDiagnostics() {
+
+  if (!mqttClient.connected()) {
+    return;
+  }
+
+  mqttClient.publish(
+    MQTT_VERSION_TOPIC,
+    FIRMWARE_VERSION,
+    true
+  );
+
+  String ip = WiFi.localIP().toString();
+
+  mqttClient.publish(
+    MQTT_IP_TOPIC,
+    ip.c_str(),
+    true
+  );
+
+  String rssi = String(WiFi.RSSI());
+
+  mqttClient.publish(
+    MQTT_RSSI_TOPIC,
+    rssi.c_str(),
+    true
+  );
+
+  String uptime = String(millis() / 1000);
+
+  mqttClient.publish(
+    MQTT_UPTIME_TOPIC,
+    uptime.c_str(),
+    true
+  );
+
+  // Report the message that is actually being displayed.
+  // Temporary render text takes precedence over the normal
+  // persistent message.
+  String displayedMessage =
+    renderMessage.length() > 0
+      ? renderMessage
+      : currentMessage;
+
+  mqttClient.publish(
+    MQTT_MESSAGE_STATE,
+    displayedMessage.c_str(),
+    true
+  );
+
+  String brightnessState =
+    String(signBrightness);
+
+  mqttClient.publish(
+    MQTT_BRIGHTNESS_STATE,
+    brightnessState.c_str(),
+    true
+  );
+
+  String textColorState =
+    String(manualTextRed) + "," +
+    String(manualTextGreen) + "," +
+    String(manualTextBlue);
+
+  mqttClient.publish(
+    MQTT_TEXT_COLOR_STATE,
+    textColorState.c_str(),
+    true
+  );
+
+  String borderColorState =
+    String(manualBorderRed) + "," +
+    String(manualBorderGreen) + "," +
+    String(manualBorderBlue);
+
+  mqttClient.publish(
+    MQTT_BORDER_COLOR_STATE,
+    borderColorState.c_str(),
+    true
+  );
+
+  String backgroundColorState =
+    String(manualBackgroundRed) + "," +
+    String(manualBackgroundGreen) + "," +
+    String(manualBackgroundBlue);
+
+  mqttClient.publish(
+    MQTT_BACKGROUND_COLOR_STATE,
+    backgroundColorState.c_str(),
+    true
+  );
+
+  String borderWidthState =
+    String(borderWidth);
+
+  mqttClient.publish(
+    MQTT_BORDER_WIDTH_STATE,
+    borderWidthState.c_str(),
+    true
+  );
+
+  String scrollSpeedState =
+    String(scrollSpeed);
+
+  mqttClient.publish(
+    MQTT_SCROLL_SPEED_STATE,
+    scrollSpeedState.c_str(),
+    true
+  );
+
+  mqttClient.publish(
+    MQTT_DISPLAY_MODE_STATE,
+    displayMode.c_str(),
+    true
+  );
+
+  mqttClient.publish(
+    MQTT_TEXT_ALIGNMENT_STATE,
+    textAlignment.c_str(),
+    true
+  );
+
+  mqttClient.publish(
+    MQTT_DISPLAY_POWER_STATE,
+    displayPower ? "ON" : "OFF",
+    true
+  );
+
+  // ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑
+  // PUBLISH NEW CURRENT STATES ABOVE HERE
+}
+
+
+// ============================================================
+// MQTT CALLBACK
+// ============================================================
+
+void mqttCallback(
+  char* topic,
+  byte* payload,
+  unsigned int length
+) {
+
+  String message;
+
+  for (unsigned int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+
+  Serial.print("MQTT [");
+  Serial.print(topic);
+  Serial.print("]: ");
+  Serial.println(message);
+
+
+  // ==========================================================
+  // NORMAL / MANUAL MESSAGE
+  // ==========================================================
+
+  if (String(topic) == MQTT_MESSAGE_TOPIC) {
+
+    // A normal message takes control back from temporary
+    // calendar/automation rendering.
+    renderPreset = "";
+    renderMessage = "";
+
+    showMessage(message);
+
+    markSettingsChanged();
+
+    mqttClient.publish(
+      MQTT_MESSAGE_STATE,
+      currentMessage.c_str(),
+      true
+    );
+  }
+
+
+  // ==========================================================
+  // BRIGHTNESS
+  // ==========================================================
+
+  if (String(topic) == MQTT_BRIGHTNESS_TOPIC) {
+
+    int newBrightness = message.toInt();
+
+    newBrightness = constrain(
+      newBrightness,
+      0,
+      255
+    );
+
+    signBrightness = newBrightness;
+
+    display->setBrightness8(
+      signBrightness
+    );
+
+    markSettingsChanged();
+
+    String brightnessState =
+      String(signBrightness);
+
+    mqttClient.publish(
+      MQTT_BRIGHTNESS_STATE,
+      brightnessState.c_str(),
+      true
+    );
+
+    Serial.print("Brightness set to: ");
+    Serial.println(signBrightness);
+  }
+
+
+  // ==========================================================
+  // TEXT COLOR
+  // ==========================================================
+
+  if (String(topic) == MQTT_TEXT_COLOR_TOPIC) {
+
+    int firstComma = message.indexOf(',');
+    int secondComma = message.indexOf(',', firstComma + 1);
+
+    if (
+      firstComma > 0 &&
+      secondComma > firstComma
+    ) {
+
+      int red =
+        message.substring(0, firstComma).toInt();
+
+      int green =
+        message.substring(
+          firstComma + 1,
+          secondComma
+        ).toInt();
+
+      int blue =
+        message.substring(
+          secondComma + 1
+        ).toInt();
+
+      textRed = constrain(red, 0, 255);
+      textGreen = constrain(green, 0, 255);
+      textBlue = constrain(blue, 0, 255);
+
+      manualTextRed = textRed;
+      manualTextGreen = textGreen;
+      manualTextBlue = textBlue;
+
+      markSettingsChanged();
+
+      redrawCurrentDisplay();
+
+      String colorState =
+        String(manualTextRed) + "," +
+        String(manualTextGreen) + "," +
+        String(manualTextBlue);
+
+      mqttClient.publish(
+        MQTT_TEXT_COLOR_STATE,
+        colorState.c_str(),
+        true
+      );
+
+      Serial.print("Text color set to: ");
+      Serial.println(colorState);
+    }
+  }
+
+
+  // ==========================================================
+  // BORDER COLOR
+  // ==========================================================
+
+  if (String(topic) == MQTT_BORDER_COLOR_TOPIC) {
+
+    int firstComma = message.indexOf(',');
+    int secondComma = message.indexOf(',', firstComma + 1);
+
+    if (
+      firstComma > 0 &&
+      secondComma > firstComma
+    ) {
+
+      int red =
+        message.substring(0, firstComma).toInt();
+
+      int green =
+        message.substring(
+          firstComma + 1,
+          secondComma
+        ).toInt();
+
+      int blue =
+        message.substring(
+          secondComma + 1
+        ).toInt();
+
+      borderRed = constrain(red, 0, 255);
+      borderGreen = constrain(green, 0, 255);
+      borderBlue = constrain(blue, 0, 255);
+
+      manualBorderRed = borderRed;
+      manualBorderGreen = borderGreen;
+      manualBorderBlue = borderBlue;
+
+      markSettingsChanged();
+
+      redrawCurrentDisplay();
+
+      String colorState =
+        String(manualBorderRed) + "," +
+        String(manualBorderGreen) + "," +
+        String(manualBorderBlue);
+
+      mqttClient.publish(
+        MQTT_BORDER_COLOR_STATE,
+        colorState.c_str(),
+        true
+      );
+
+      Serial.print("Border color set to: ");
+      Serial.println(colorState);
+    }
+  }
+
+
+  // ==========================================================
+  // BORDER WIDTH
+  // ==========================================================
+
+  if (String(topic) == MQTT_BORDER_WIDTH_TOPIC) {
+
+    int newWidth = message.toInt();
+
+    newWidth = constrain(
+      newWidth,
+      0,
+      15
+    );
+
+    borderWidth = newWidth;
+
+    markSettingsChanged();
+
+    redrawCurrentDisplay();
+
+    String widthState =
+      String(borderWidth);
+
+    mqttClient.publish(
+      MQTT_BORDER_WIDTH_STATE,
+      widthState.c_str(),
+      true
+    );
+
+    Serial.print("Border width set to: ");
+    Serial.println(borderWidth);
+  }
+
+
+  // ==========================================================
+  // BACKGROUND COLOR
+  // ==========================================================
+
+  if (String(topic) == MQTT_BACKGROUND_COLOR_TOPIC) {
+
+    int firstComma = message.indexOf(',');
+    int secondComma = message.indexOf(',', firstComma + 1);
+
+    if (
+      firstComma > 0 &&
+      secondComma > firstComma
+    ) {
+
+      int red =
+        message.substring(0, firstComma).toInt();
+
+      int green =
+        message.substring(
+          firstComma + 1,
+          secondComma
+        ).toInt();
+
+      int blue =
+        message.substring(
+          secondComma + 1
+        ).toInt();
+
+      backgroundRed = constrain(red, 0, 255);
+      backgroundGreen = constrain(green, 0, 255);
+      backgroundBlue = constrain(blue, 0, 255);
+
+      manualBackgroundRed = backgroundRed;
+      manualBackgroundGreen = backgroundGreen;
+      manualBackgroundBlue = backgroundBlue;
+
+      markSettingsChanged();
+
+      redrawCurrentDisplay();
+
+      String colorState =
+        String(manualBackgroundRed) + "," +
+        String(manualBackgroundGreen) + "," +
+        String(manualBackgroundBlue);
+
+      mqttClient.publish(
+        MQTT_BACKGROUND_COLOR_STATE,
+        colorState.c_str(),
+        true
+      );
+
+      Serial.print("Background color set to: ");
+      Serial.println(colorState);
+    }
+  }
+
+
+  // ==========================================================
+  // BACKGROUND COLOR POWER
+  // ==========================================================
+
+  if (String(topic) == MQTT_BACKGROUND_COLOR_POWER_TOPIC) {
+
+    message.trim();
+    message.toUpperCase();
+
+    if (message == "OFF") {
+
+      backgroundRed = 0;
+      backgroundGreen = 0;
+      backgroundBlue = 0;
+
+      manualBackgroundRed = 0;
+      manualBackgroundGreen = 0;
+      manualBackgroundBlue = 0;
+
+      markSettingsChanged();
+
+      redrawCurrentDisplay();
+
+      mqttClient.publish(
+        MQTT_BACKGROUND_COLOR_STATE,
+        "0,0,0",
+        true
+      );
+
+      Serial.println(
+        "Background color set to black"
+      );
+    }
+  }
+
+
+  // ==========================================================
+  // TEXT COLOR POWER
+  // ==========================================================
+
+  if (String(topic) == MQTT_TEXT_COLOR_POWER_TOPIC) {
+
+    message.trim();
+    message.toUpperCase();
+
+    if (message == "OFF") {
+
+      textRed = 0;
+      textGreen = 0;
+      textBlue = 0;
+
+      manualTextRed = 0;
+      manualTextGreen = 0;
+      manualTextBlue = 0;
+
+      markSettingsChanged();
+
+      redrawCurrentDisplay();
+
+      mqttClient.publish(
+        MQTT_TEXT_COLOR_STATE,
+        "0,0,0",
+        true
+      );
+
+      Serial.println(
+        "Text color set to black"
+      );
+    }
+  }
+
+
+  // ==========================================================
+  // BORDER COLOR POWER
+  // ==========================================================
+
+  if (String(topic) == MQTT_BORDER_COLOR_POWER_TOPIC) {
+
+    message.trim();
+    message.toUpperCase();
+
+    if (message == "OFF") {
+
+      borderRed = 0;
+      borderGreen = 0;
+      borderBlue = 0;
+
+      manualBorderRed = 0;
+      manualBorderGreen = 0;
+      manualBorderBlue = 0;
+
+      markSettingsChanged();
+
+      redrawCurrentDisplay();
+
+      mqttClient.publish(
+        MQTT_BORDER_COLOR_STATE,
+        "0,0,0",
+        true
+      );
+
+      Serial.println(
+        "Border color set to black"
+      );
+    }
+  }
+
+
+  // ==========================================================
+  // SCROLL SPEED
+  // ==========================================================
+
+  if (String(topic) == MQTT_SCROLL_SPEED_TOPIC) {
+
+    int newSpeed = message.toInt();
+
+    newSpeed = constrain(
+      newSpeed,
+      1,
+      10
+    );
+
+    scrollSpeed = newSpeed;
+
+    markSettingsChanged();
+
+    scrollInterval = map(
+      scrollSpeed,
+      1,
+      10,
+      150,
+      20
+    );
+
+    String speedState =
+      String(scrollSpeed);
+
+    mqttClient.publish(
+      MQTT_SCROLL_SPEED_STATE,
+      speedState.c_str(),
+      true
+    );
+
+    Serial.print("Scroll speed set to: ");
+    Serial.print(scrollSpeed);
+
+    Serial.print(" (");
+    Serial.print(scrollInterval);
+    Serial.println(" ms)");
+  }
+
+
+  // ==========================================================
+  // DISPLAY MODE
+  // ==========================================================
+
+  if (String(topic) == MQTT_DISPLAY_MODE_TOPIC) {
+
+    message.trim();
+    message.toUpperCase();
+
+    if (
+      message == "AUTO" ||
+      message == "SINGLE" ||
+      message == "TWO LINE" ||
+      message == "SCROLL"
+    ) {
+
+      displayMode = message;
+
+      markSettingsChanged();
+
+      mqttClient.publish(
+        MQTT_DISPLAY_MODE_STATE,
+        displayMode.c_str(),
+        true
+      );
+
+      Serial.print("Display mode set to: ");
+      Serial.println(displayMode);
+
+      redrawCurrentDisplay();
+    }
+  }
+
+
+  // ==========================================================
+  // TEXT ALIGNMENT
+  // ==========================================================
+
+  if (String(topic) == MQTT_TEXT_ALIGNMENT_TOPIC) {
+
+    message.trim();
+    message.toUpperCase();
+
+    if (
+      message == "LEFT" ||
+      message == "CENTER" ||
+      message == "RIGHT"
+    ) {
+
+      textAlignment = message;
+
+      markSettingsChanged();
+
+      mqttClient.publish(
+        MQTT_TEXT_ALIGNMENT_STATE,
+        textAlignment.c_str(),
+        true
+      );
+
+      Serial.print("Text alignment set to: ");
+      Serial.println(textAlignment);
+
+      redrawCurrentDisplay();
+    }
+  }
+
+
+  // ==========================================================
+  // PRESET EDITOR SELECT
+  // ==========================================================
+
+  if (String(topic) == MQTT_PRESET_SELECT_TOPIC) {
+
+    message.trim();
+    message.toUpperCase();
+
+    int presetIndex =
+      findStatusPreset(message);
+
+    if (presetIndex >= 0) {
+
+      loadPresetIntoEditor(
+        (uint8_t)presetIndex
+      );
+
+      publishPresetEditorState();
+
+      Serial.print(
+        "Preset editor selected: "
+      );
+
+      Serial.println(
+        statusPresets[presetEditIndex].name
+      );
+    }
+  }
+
+
+  // ==========================================================
+  // PRESET EDITOR TEXT COLOR
+  // ==========================================================
+
+  if (String(topic) == MQTT_PRESET_TEXT_COLOR_TOPIC) {
+
+    int firstComma = message.indexOf(',');
+    int secondComma =
+      message.indexOf(',', firstComma + 1);
+
+    if (
+      firstComma > 0 &&
+      secondComma > firstComma
+    ) {
+
+      int red =
+        message.substring(
+          0,
+          firstComma
+        ).toInt();
+
+      int green =
+        message.substring(
+          firstComma + 1,
+          secondComma
+        ).toInt();
+
+      int blue =
+        message.substring(
+          secondComma + 1
+        ).toInt();
+
+      presetEditText.r =
+        constrain(red, 0, 255);
+
+      presetEditText.g =
+        constrain(green, 0, 255);
+
+      presetEditText.b =
+        constrain(blue, 0, 255);
+
+      publishPresetEditorState();
+
+      Serial.print(
+        "Preset editor text color: "
+      );
+
+      Serial.print(presetEditText.r);
+      Serial.print(",");
+      Serial.print(presetEditText.g);
+      Serial.print(",");
+      Serial.println(presetEditText.b);
+    }
+  }
+
+
+  // ==========================================================
+  // PRESET EDITOR BORDER COLOR
+  // ==========================================================
+
+  if (String(topic) == MQTT_PRESET_BORDER_COLOR_TOPIC) {
+
+    int firstComma = message.indexOf(',');
+    int secondComma =
+      message.indexOf(',', firstComma + 1);
+
+    if (
+      firstComma > 0 &&
+      secondComma > firstComma
+    ) {
+
+      int red =
+        message.substring(
+          0,
+          firstComma
+        ).toInt();
+
+      int green =
+        message.substring(
+          firstComma + 1,
+          secondComma
+        ).toInt();
+
+      int blue =
+        message.substring(
+          secondComma + 1
+        ).toInt();
+
+      presetEditBorder.r =
+        constrain(red, 0, 255);
+
+      presetEditBorder.g =
+        constrain(green, 0, 255);
+
+      presetEditBorder.b =
+        constrain(blue, 0, 255);
+
+      publishPresetEditorState();
+
+      Serial.print(
+        "Preset editor border color: "
+      );
+
+      Serial.print(presetEditBorder.r);
+      Serial.print(",");
+      Serial.print(presetEditBorder.g);
+      Serial.print(",");
+      Serial.println(presetEditBorder.b);
+    }
+  }
+
+
+  // ==========================================================
+  // PRESET EDITOR BACKGROUND COLOR
+  // ==========================================================
+
+  if (String(topic) == MQTT_PRESET_BACKGROUND_COLOR_TOPIC) {
+
+    int firstComma = message.indexOf(',');
+    int secondComma =
+      message.indexOf(',', firstComma + 1);
+
+    if (
+      firstComma > 0 &&
+      secondComma > firstComma
+    ) {
+
+      int red =
+        message.substring(
+          0,
+          firstComma
+        ).toInt();
+
+      int green =
+        message.substring(
+          firstComma + 1,
+          secondComma
+        ).toInt();
+
+      int blue =
+        message.substring(
+          secondComma + 1
+        ).toInt();
+
+      presetEditBackground.r =
+        constrain(red, 0, 255);
+
+      presetEditBackground.g =
+        constrain(green, 0, 255);
+
+      presetEditBackground.b =
+        constrain(blue, 0, 255);
+
+      publishPresetEditorState();
+
+      Serial.print(
+        "Preset editor background color: "
+      );
+
+      Serial.print(presetEditBackground.r);
+      Serial.print(",");
+      Serial.print(presetEditBackground.g);
+      Serial.print(",");
+      Serial.println(presetEditBackground.b);
+    }
+  }
+
+
+  // ==========================================================
+  // PRESET EDITOR SAVE
+  // ==========================================================
+
+  if (String(topic) == MQTT_PRESET_SAVE_TOPIC) {
+
+    message.trim();
+    message.toUpperCase();
+
+    if (message == "SAVE") {
+
+      StatusPreset &preset =
+        statusPresets[presetEditIndex];
+
+      preset.text =
+        presetEditText;
+
+      preset.border =
+        presetEditBorder;
+
+      preset.background =
+        presetEditBackground;
+
+      markSettingsChanged();
+
+      publishPresetEditorState();
+
+      Serial.print("Preset saved: ");
+      Serial.println(preset.name);
+    }
+  }
+
+
+  // ==========================================================
+  // DISPLAY POWER
+  // ==========================================================
+
+  if (String(topic) == MQTT_DISPLAY_POWER_TOPIC) {
+
+    message.trim();
+    message.toUpperCase();
+
+    if (message == "ON") {
+
+      displayPower = true;
+
+      markSettingsChanged();
+
+      // Restore whichever message currently owns the display:
+      // temporary render first, otherwise persistent message.
+      redrawCurrentDisplay();
+
+      mqttClient.publish(
+        MQTT_DISPLAY_POWER_STATE,
+        "ON",
+        true
+      );
+
+      Serial.println(
+        "Display power: ON"
+      );
+    }
+
+    else if (message == "OFF") {
+
+      displayPower = false;
+
+      markSettingsChanged();
+
+      scrolling = false;
+      scrollMessage = "";
+
+      display->clearScreen();
+
+      mqttClient.publish(
+        MQTT_DISPLAY_POWER_STATE,
+        "OFF",
+        true
+      );
+
+      Serial.println(
+        "Display power: OFF"
+      );
+    }
+  }
+
+
+  // ==========================================================
+  // TEMPORARY RENDER PRESET
+  // ==========================================================
+
+  if (String(topic) == MQTT_RENDER_PRESET_TOPIC) {
+
+    message.trim();
+    message.toUpperCase();
+
+    if (
+      message.length() == 0 ||
+      message == "NONE"
+    ) {
+
+      renderPreset = "";
+
+      Serial.println(
+        "Render preset cleared"
+      );
+    }
+
+    else {
+
+      int presetIndex =
+        findStatusPreset(message);
+
+      if (presetIndex >= 0) {
+
+        renderPreset =
+          statusPresets[presetIndex].name;
+
+        Serial.print(
+          "Render preset set to: "
+        );
+
+        Serial.println(renderPreset);
+      }
+
+      else {
+
+        Serial.print(
+          "Unknown render preset: "
+        );
+
+        Serial.println(message);
+      }
+    }
+  }
+
+
+  // ==========================================================
+  // TEMPORARY RENDER MESSAGE
+  // ==========================================================
+
+  if (String(topic) == MQTT_RENDER_MESSAGE_TOPIC) {
+
+    message.trim();
+
+    if (message.length() > 0) {
+
+      // Store temporary display text separately from the
+      // persistent/manual message.
+      renderMessage = message;
+
+      // Render it without replacing currentMessage.
+      showMessage(
+        renderMessage,
+        false
+      );
+
+      // Immediately report what is actually on the sign.
+      mqttClient.publish(
+        MQTT_MESSAGE_STATE,
+        renderMessage.c_str(),
+        true
+      );
+
+      Serial.print(
+        "Rendered message using preset: "
+      );
+
+      if (renderPreset.length() > 0) {
+        Serial.println(renderPreset);
+      }
+      else {
+        Serial.println("NONE");
+      }
+    }
+
+    else {
+
+      // Empty payload releases temporary rendering and
+      // restores the persistent/manual message.
+      renderMessage = "";
+      renderPreset = "";
+
+      showMessage(
+        currentMessage,
+        false
+      );
+
+      mqttClient.publish(
+        MQTT_MESSAGE_STATE,
+        currentMessage.c_str(),
+        true
+      );
+
+      Serial.println(
+        "Temporary render cleared; normal message restored"
+      );
+    }
+  }
+
+
+  // ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑
+  // ADD NEW MQTT CALLBACK HANDLERS ABOVE HERE
+}
+
+// ============================================================
+// WI-FI
+// ============================================================
+
+void startWiFi() {
+
+  Serial.print("Connecting to Wi-Fi: ");
+  Serial.println(WIFI_SSID);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.setHostname(DEVICE_NAME);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  lastWiFiAttempt = millis();
+}
+
+void maintainWiFi() {
+
+  if (WiFi.status() == WL_CONNECTED) {
+    return;
+  }
+
+  if (
+    millis() - lastWiFiAttempt >=
+    WIFI_RETRY_INTERVAL
+  ) {
+
+    Serial.println("Wi-Fi disconnected. Reconnecting...");
+
+    WiFi.disconnect();
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+    lastWiFiAttempt = millis();
+  }
+}
+
+// ============================================================
+// MQTT
+// ============================================================
+
+void connectMQTT() {
+
+  if (WiFi.status() != WL_CONNECTED) {
+    return;
+  }
+
+  if (mqttClient.connected()) {
+    return;
+  }
+
+  Serial.print("Connecting to MQTT...");
+
+  String clientId = "office-sign-";
+  clientId += String(
+    (uint32_t)ESP.getEfuseMac(),
+    HEX
+  );
+
+  if (
+    mqttClient.connect(
+      clientId.c_str(),
+      MQTT_USER,
+      MQTT_PASSWORD,
+      MQTT_STATUS_TOPIC,
+      0,
+      true,
+      "offline"
+    )
+  ) {
+
+    Serial.println("connected!");
+
+    mqttClient.publish(
+      MQTT_STATUS_TOPIC,
+      "online",
+      true
+    );
+
+    mqttClient.subscribe(MQTT_MESSAGE_TOPIC);
+    mqttClient.subscribe(MQTT_BRIGHTNESS_TOPIC);
+    mqttClient.subscribe(MQTT_TEXT_COLOR_TOPIC);
+    mqttClient.subscribe(MQTT_BORDER_COLOR_TOPIC);
+    mqttClient.subscribe(MQTT_BORDER_WIDTH_TOPIC);
+    mqttClient.subscribe(MQTT_BACKGROUND_COLOR_TOPIC);
+    mqttClient.subscribe(MQTT_BACKGROUND_COLOR_POWER_TOPIC);
+    mqttClient.subscribe(MQTT_TEXT_COLOR_POWER_TOPIC);
+    mqttClient.subscribe(MQTT_BORDER_COLOR_POWER_TOPIC);
+    mqttClient.subscribe(MQTT_SCROLL_SPEED_TOPIC);
+    mqttClient.subscribe(MQTT_DISPLAY_MODE_TOPIC);
+    mqttClient.subscribe(MQTT_TEXT_ALIGNMENT_TOPIC);
+    mqttClient.subscribe(MQTT_PRESET_SELECT_TOPIC);
+    mqttClient.subscribe(MQTT_PRESET_TEXT_COLOR_TOPIC);
+    mqttClient.subscribe(MQTT_PRESET_BORDER_COLOR_TOPIC);
+    mqttClient.subscribe(MQTT_PRESET_BACKGROUND_COLOR_TOPIC);
+    mqttClient.subscribe(MQTT_PRESET_SAVE_TOPIC);
+    mqttClient.subscribe(MQTT_DISPLAY_POWER_TOPIC);
+    mqttClient.subscribe(MQTT_RENDER_PRESET_TOPIC);
+    mqttClient.subscribe(MQTT_RENDER_MESSAGE_TOPIC);
+
+    // ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  ↑  
+    // CONNECT NEW SUBSCRIPTIONS ABOVE HERE
+
+    Serial.print("Subscribed to: ");
+    Serial.println(MQTT_MESSAGE_TOPIC);
+
+    publishDiagnostics();
+    publishPresetEditorState();
+  }
+
+  else {
+
+    Serial.print("failed, rc=");
+    Serial.println(mqttClient.state());
+  }
+
+  lastMQTTAttempt = millis();
+}
+
+void maintainMQTT() {
+
+  if (WiFi.status() != WL_CONNECTED) {
+    return;
+  }
+
+  if (mqttClient.connected()) {
+    mqttClient.loop();
+    return;
+  }
+
+  if (
+    millis() - lastMQTTAttempt >=
+    MQTT_RETRY_INTERVAL
+  ) {
+
+    connectMQTT();
+  }
+}
+
+// ============================================================
+// OTA
+// ============================================================
+
+void loadSettings() {
+
+  preferences.begin("office-sign", true);
+
+  signBrightness = preferences.getUChar(
+    "brightness",
+    signBrightness
+  );
+
+  borderWidth = preferences.getUChar(
+    "borderWidth",
+    borderWidth
+  );
+
+  scrollSpeed = preferences.getUChar(
+    "scrollSpeed",
+    scrollSpeed
+  );
+
+  displayPower = preferences.getBool(
+    "displayPower",
+    displayPower
+  );
+
+  textRed = preferences.getUChar(
+    "textR",
+    textRed
+  );
+
+  textGreen = preferences.getUChar(
+    "textG",
+    textGreen
+  );
+
+  textBlue = preferences.getUChar(
+    "textB",
+    textBlue
+  );
+
+  borderRed = preferences.getUChar(
+    "borderR",
+    borderRed
+  );
+
+  borderGreen = preferences.getUChar(
+    "borderG",
+    borderGreen
+  );
+
+  borderBlue = preferences.getUChar(
+    "borderB",
+    borderBlue
+  );
+
+  backgroundRed = preferences.getUChar(
+    "bgR",
+    backgroundRed
+  );
+
+  backgroundGreen = preferences.getUChar(
+    "bgG",
+    backgroundGreen
+  );
+
+  backgroundBlue = preferences.getUChar(
+    "bgB",
+    backgroundBlue
+  );
+
+  manualTextRed   = textRed;
+  manualTextGreen = textGreen;
+  manualTextBlue  = textBlue;
+
+  manualBorderRed   = borderRed;
+  manualBorderGreen = borderGreen;
+  manualBorderBlue  = borderBlue;
+
+  manualBackgroundRed   = backgroundRed;
+  manualBackgroundGreen = backgroundGreen;
+  manualBackgroundBlue  = backgroundBlue;
+
+  displayMode = preferences.getString(
+    "displayMode",
+    displayMode
+  );
+
+  textAlignment = preferences.getString(
+    "alignment",
+    textAlignment
+  );
+
+  currentMessage = preferences.getString(
+    "message",
+    currentMessage
+  );
+
+  for (uint8_t i = 0; i < STATUS_PRESET_COUNT; i++) {
+
+    String prefix = "p" + String(i);
+
+    statusPresets[i].text.r = preferences.getUChar(
+      (prefix + "tr").c_str(),
+      statusPresets[i].text.r
+    );
+
+    statusPresets[i].text.g = preferences.getUChar(
+      (prefix + "tg").c_str(),
+      statusPresets[i].text.g
+    );
+
+    statusPresets[i].text.b = preferences.getUChar(
+      (prefix + "tb").c_str(),
+      statusPresets[i].text.b
+    );
+
+    statusPresets[i].border.r = preferences.getUChar(
+      (prefix + "br").c_str(),
+      statusPresets[i].border.r
+    );
+
+    statusPresets[i].border.g = preferences.getUChar(
+      (prefix + "bg").c_str(),
+      statusPresets[i].border.g
+    );
+
+    statusPresets[i].border.b = preferences.getUChar(
+      (prefix + "bb").c_str(),
+      statusPresets[i].border.b
+    );
+
+    statusPresets[i].background.r = preferences.getUChar(
+      (prefix + "gr").c_str(),
+      statusPresets[i].background.r
+    );
+
+    statusPresets[i].background.g = preferences.getUChar(
+      (prefix + "gg").c_str(),
+      statusPresets[i].background.g
+    );
+
+    statusPresets[i].background.b = preferences.getUChar(
+      (prefix + "gb").c_str(),
+      statusPresets[i].background.b
+    );
+  }
+
+  preferences.end();
+
+  // Defensive limits in case stored data is ever invalid.
+  borderWidth = constrain(borderWidth, 0, 15);
+  scrollSpeed = constrain(scrollSpeed, 1, 10);
+
+  scrollInterval = map(
+    scrollSpeed,
+    1,
+    10,
+    150,
+    20
+  );
+
+  if (
+    displayMode != "AUTO" &&
+    displayMode != "SINGLE" &&
+    displayMode != "TWO LINE" &&
+    displayMode != "SCROLL"
+  ) {
+    displayMode = "AUTO";
+  }
+
+  if (
+    textAlignment != "LEFT" &&
+    textAlignment != "CENTER" &&
+    textAlignment != "RIGHT"
+  ) {
+    textAlignment = "CENTER";
+  }
+
+  Serial.println("Settings loaded from NVS");
+}
+
+void setupOTA() {
+
+  ArduinoOTA.setHostname(DEVICE_NAME);
+  ArduinoOTA.setPassword("office_sign");
+
+  // ==========================================================
+  // OTA START
+  // ==========================================================
+
+  ArduinoOTA.onStart([]() {
+
+    Serial.println();
+    Serial.println("OTA update starting...");
+
+    display->clearScreen();
+    display->setTextWrap(false);
+
+    // Cyan
+    display->setTextColor(
+      display->color565(0, 255, 255)
+    );
+
+    // --------------------------------------------------------
+    // UPDATE
+    // --------------------------------------------------------
+
+    display->setTextSize(1);
+
+    String updateText = "UPDATE";
+
+    int updateWidth = updateText.length() * 6;
+    int updateX = (PANEL_RES_X - updateWidth) / 2;
+
+    display->setCursor(updateX, 7);
+    display->print(updateText);
+
+    // --------------------------------------------------------
+    // Firmware version
+    // --------------------------------------------------------
+
+    String versionText = FIRMWARE_VERSION;
+
+    int versionWidth = versionText.length() * 6;
+    int versionX = (PANEL_RES_X - versionWidth) / 2;
+
+    display->setCursor(versionX, 19);
+    display->print(versionText);
+  });
+
+  // ==========================================================
+  // OTA COMPLETE
+  // ==========================================================
+
+  ArduinoOTA.onEnd([]() {
+
+    Serial.println();
+    Serial.println("OTA update complete!");
+  });
+
+  // ==========================================================
+  // OTA PROGRESS
+  // ==========================================================
+
+  ArduinoOTA.onProgress(
+    [](unsigned int progress, unsigned int total) {
+
+      static int lastPercent = -1;
+
+      int percent =
+        (progress * 100) / total;
+
+      if (
+        percent != lastPercent &&
+        percent % 10 == 0
+      ) {
+
+        Serial.printf(
+          "OTA Progress: %u%%\n",
+          percent
+        );
+
+        lastPercent = percent;
+      }
+    }
+  );
+
+  // ==========================================================
+  // OTA ERROR
+  // ==========================================================
+
+  ArduinoOTA.onError([](ota_error_t error) {
+
+    Serial.printf(
+      "OTA Error [%u]: ",
+      error
+    );
+
+    if (error == OTA_AUTH_ERROR) {
+      Serial.println("Auth Failed");
+    }
+    else if (error == OTA_BEGIN_ERROR) {
+      Serial.println("Begin Failed");
+    }
+    else if (error == OTA_CONNECT_ERROR) {
+      Serial.println("Connect Failed");
+    }
+    else if (error == OTA_RECEIVE_ERROR) {
+      Serial.println("Receive Failed");
+    }
+    else if (error == OTA_END_ERROR) {
+      Serial.println("End Failed");
+    }
+    else {
+      Serial.println("Unknown");
+    }
+
+    // Show the error on the matrix.
+    display->clearScreen();
+    display->setTextWrap(false);
+    display->setTextSize(1);
+
+    // Red
+    display->setTextColor(
+      display->color565(255, 0, 0)
+    );
+
+    String errorText = "ERR ";
+    errorText += String((int)error);
+
+    int errorWidth = errorText.length() * 6;
+    int errorX = (PANEL_RES_X - errorWidth) / 2;
+
+    display->setCursor(errorX, 12);
+    display->print(errorText);
+  });
+
+  // ==========================================================
+  // START OTA SERVICE
+  // ==========================================================
+
+  ArduinoOTA.begin();
+
+  Serial.println("OTA ready.");
+}
+
+void markSettingsChanged() {
+  settingsDirty = true;
+  settingsChangedTime = millis();
+
+  Serial.println("Settings marked as changed");
+}
+
+void saveSettings() {
+
+  preferences.begin("office-sign", false);
+
+  preferences.putUChar("brightness", signBrightness);
+  preferences.putUChar("borderWidth", borderWidth);
+  preferences.putUChar("scrollSpeed", scrollSpeed);
+
+  preferences.putBool("displayPower", displayPower);
+
+  preferences.putUChar("textR", manualTextRed);
+  preferences.putUChar("textG", manualTextGreen);
+  preferences.putUChar("textB", manualTextBlue);
+
+  preferences.putUChar("borderR", manualBorderRed);
+  preferences.putUChar("borderG", manualBorderGreen);
+  preferences.putUChar("borderB", manualBorderBlue);
+
+  preferences.putUChar("bgR", manualBackgroundRed);
+  preferences.putUChar("bgG", manualBackgroundGreen);
+  preferences.putUChar("bgB", manualBackgroundBlue);
+
+  preferences.putString("displayMode", displayMode);
+  preferences.putString("alignment", textAlignment);
+  preferences.putString("message", currentMessage);
+
+  for (uint8_t i = 0; i < STATUS_PRESET_COUNT; i++) {
+
+    String prefix = "p" + String(i);
+
+    preferences.putUChar((prefix + "tr").c_str(), statusPresets[i].text.r);
+    preferences.putUChar((prefix + "tg").c_str(), statusPresets[i].text.g);
+    preferences.putUChar((prefix + "tb").c_str(), statusPresets[i].text.b);
+
+    preferences.putUChar((prefix + "br").c_str(), statusPresets[i].border.r);
+    preferences.putUChar((prefix + "bg").c_str(), statusPresets[i].border.g);
+    preferences.putUChar((prefix + "bb").c_str(), statusPresets[i].border.b);
+
+    preferences.putUChar((prefix + "gr").c_str(), statusPresets[i].background.r);
+    preferences.putUChar((prefix + "gg").c_str(), statusPresets[i].background.g);
+    preferences.putUChar((prefix + "gb").c_str(), statusPresets[i].background.b);
+  }
+
+  preferences.end();
+
+  settingsDirty = false;
+
+  Serial.println("Settings saved to NVS");
+}
+
+// ============================================================
+// SETUP
+// ============================================================
+
+void setup() {
+
+  Serial.begin(115200);
+  loadSettings();
+
+  // Initialize the preset editor from the actual preset values
+  // loaded from NVS rather than only the factory defaults.
+  loadPresetIntoEditor(0);
+
+  delay(500);
+
+  Serial.println();
+  Serial.println("==============================");
+  Serial.println("Office Sign");
+  Serial.print("Firmware: ");
+  Serial.println(FIRMWARE_VERSION);
+  Serial.println("==============================");
+
+  // ----------------------------------------------------------
+  // Matrix
+  // ----------------------------------------------------------
+
+  HUB75_I2S_CFG mxconfig(
+    PANEL_RES_X,
+    PANEL_RES_Y,
+    PANEL_CHAIN
+  );
+
+  mxconfig.gpio.r1  = R1_PIN;
+  mxconfig.gpio.g1  = G1_PIN;
+  mxconfig.gpio.b1  = B1_PIN;
+
+  mxconfig.gpio.r2  = R2_PIN;
+  mxconfig.gpio.g2  = G2_PIN;
+  mxconfig.gpio.b2  = B2_PIN;
+
+  mxconfig.gpio.a   = A_PIN;
+  mxconfig.gpio.b   = B_PIN;
+  mxconfig.gpio.c   = C_PIN;
+  mxconfig.gpio.d   = D_PIN;
+  mxconfig.gpio.e   = E_PIN;
+
+  mxconfig.gpio.lat = LAT_PIN;
+  mxconfig.gpio.oe  = OE_PIN;
+  mxconfig.gpio.clk = CLK_PIN;
+
+  display =
+    new MatrixPanel_I2S_DMA(mxconfig);
+
+  if (!display->begin()) {
+
+    Serial.println(
+      "Matrix initialization failed!"
+    );
+
+    while (true) {
+      delay(1000);
+    }
+  }
+
+  display->setBrightness8(signBrightness);
+
+  String savedMessage = currentMessage;
+
+  showMessage("BOOT");
+
+  // ----------------------------------------------------------
+  // Wi-Fi
+  // ----------------------------------------------------------
+
+  startWiFi();
+
+  unsigned long wifiStart = millis();
+
+  while (
+    WiFi.status() != WL_CONNECTED &&
+    millis() - wifiStart < 15000
+  ) {
+
+    ArduinoOTA.handle();
+    delay(100);
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+
+    Serial.println("Wi-Fi connected!");
+
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+
+    Serial.print("RSSI: ");
+    Serial.print(WiFi.RSSI());
+    Serial.println(" dBm");
+  }
+  else {
+    Serial.println("Initial Wi-Fi connection timed out.");
+    Serial.println("Will continue retrying in background.");
+  }
+
+  // ----------------------------------------------------------
+  // OTA
+  // ----------------------------------------------------------
+
+  setupOTA();
+
+  // ----------------------------------------------------------
+  // MQTT
+  // ----------------------------------------------------------
+
+  mqttClient.setServer(MQTT_SERVER, MQTT_PORT);
+  mqttClient.setCallback(mqttCallback);
+
+  showMessage(savedMessage);
+
+  connectMQTT();
+}
+
+// ============================================================
+// LOOP
+// ============================================================
+
+void loop() {
+
+  // OTA must remain responsive.
+  ArduinoOTA.handle();
+  mqttClient.loop();
+
+  // Neither of these functions blocks.
+  maintainWiFi();
+  maintainMQTT();
+
+  if (scrolling && displayPower) {
+
+    unsigned long now = millis();
+
+    if (now - lastScrollTime >= scrollInterval) {
+
+      lastScrollTime = now;
+
+      scrollX--;
+
+      // Once the entire message has left the display,
+      // start again from the right.
+      if (scrollX < -scrollTextWidth) {
+        scrollX = 61;
+      }
+
+      drawScrollFrame();
+    }
+  }
+
+  // Publish diagnostics every minute.
+  if (
+    mqttClient.connected() &&
+    millis() - lastDiagnosticsUpdate >=
+      DIAGNOSTIC_INTERVAL
+  ) {
+
+    publishDiagnostics();
+
+    lastDiagnosticsUpdate = millis();
+  }
+
+  if (
+    settingsDirty &&
+    millis() - settingsChangedTime >= SETTINGS_SAVE_DELAY
+  ) {
+    saveSettings();
+  }
+
+  delay(2);
+}
+
+
+

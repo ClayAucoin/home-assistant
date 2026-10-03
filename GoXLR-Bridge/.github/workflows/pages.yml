@@ -1,0 +1,84 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ "main" ] # change if your default branch is different
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    # 👇 Expose any tokens here (add more lines as needed).
+    # Any env var whose name ends with _TOKEN will be auto-replaced into your files.
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get repo name
+        run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
+
+      # ----- Optional build step (uncomment for Vite/React/etc.) -----
+      # - name: Setup Node
+      #   uses: actions/setup-node@v4
+      #   with:
+      #     node-version: 20
+      # - run: npm ci
+      # - run: npm run build
+      # ---------------------------------------------------------------
+
+      # Change this to your built site folder if you have one (e.g., dist)
+      - name: Set site path
+        run: echo "SITE_DIR=." >> $GITHUB_ENV
+
+      - name: Replace *_TOKEN placeholders with env values
+        working-directory: ${{ env.SITE_DIR }}
+        run: |
+          echo "Replacing *_TOKEN placeholders in ${SITE_DIR}..."
+          # Find env vars that end with _TOKEN=
+          env | grep -E '_TOKEN=' || true
+          env | grep -E '_TOKEN=' | while IFS='=' read -r key val; do
+            # Escape / & " for sed safety
+            esc_val=$(printf '%s' "$val" | sed 's/[\/&"]/\\&/g')
+            echo " - $key → \"${esc_val}\""
+            find . -type f \( -name "*.html" -o -name "*.js" -o -name "*.css" -o -name "*.json" \) -print0 |
+              xargs -0 sed -i "s|\\b${key}\\b|\"${esc_val}\"|g"
+          done
+
+      - name: Rewrite absolute URLs to /${REPO_NAME}/...
+        working-directory: ${{ env.SITE_DIR }}
+        run: |
+          echo "Rewriting root-relative URLs under ${SITE_DIR}..."
+          # Adjust href="/x", src="/x", and CSS url(/x) to include the repo subpath.
+          # Skips protocol-relative '//' and data: URLs.
+          find . -type f \( -name "*.html" -o -name "*.css" -o -name "*.js" \) -print0 | xargs -0 sed -i \
+            -e "s|href=\"/\([^/]\)|href=\"/${REPO_NAME}/\1|g" \
+            -e "s|src=\"/\([^/]\)|src=\"/${REPO_NAME}/\1|g" \
+            -e "s|url(/\\([^/)]\\)|url(/${REPO_NAME}/\\1|g"
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ env.SITE_DIR }}
+
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

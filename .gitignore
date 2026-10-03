@@ -1,36 +1,43 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# Credentials / local configuration
+config.ini
+secret-variables.js
 
-# dependencies
+# Node dependencies
 /node_modules
 /.pnp
 pnp.js
 
-# editor / logs
-.vscode/
-
-# testing
-/coverage
-
-# production
-/build
-
-# virtual environment directories
+# Virtual environments / environment files
 env/
 venv/
 ENV/
-.env
-.env.test
 env*
 ENV*
 .venv/
-secret-variables.js
+.env
+.env.test
 
-# logs
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Runtime / package manager logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS cruft
-.DS_Store
+# Testing
+/coverage
+
+# Production builds
+/build
+
+# IDE / editor
+.vscode/
+.idea/
+
+# OS files
 Thumbs.db
-#---
+.DS_Store

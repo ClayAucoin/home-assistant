@@ -1,0 +1,23 @@
+# Credentials / local configuration
+config.ini
+
+# Runtime logs
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE/editor
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
+.DS_Store

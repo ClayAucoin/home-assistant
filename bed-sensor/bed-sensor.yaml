@@ -1,0 +1,103 @@
+# Board: ESP32 DevKit V1 (Espressif)
+# Definition: definitions/boards/esp32-devkit-v1/manifest.yaml
+
+substitutions:
+
+  name: bed-sensor
+  friendly_name: Bed Sensor
+
+  api_encryption_key: "ne1UK/G+4eqgWv/9Yn6iRsfmXBdVWGoDa8mXpL+TgQg="
+  ota_password: "wPa3@#hV736n97!"
+  ap_ssid: "Bed Sensor Fallback Hotspot"
+  ap_password: "n0tKHYQQDBAH"
+  bed_sensor_pin: "GPIO13"
+  occupied_delay_initial: 1
+  vacant_delay_initial: 3
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  variant: esp32
+  framework:
+    type: esp-idf
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: ${api_encryption_key}
+
+ota:
+  - platform: esphome
+    password: ${ota_password}
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: ${ap_ssid}
+    password: ${ap_password}
+
+captive_portal:
+
+number:
+  - platform: template
+    name: "Occupied Delay"
+    id: occupied_delay
+    min_value: 0
+    max_value: 30
+    step: 1
+    initial_value: ${occupied_delay_initial}
+    optimistic: true
+    restore_value: true
+    unit_of_measurement: "s"
+
+  - platform: template
+    name: "Vacant Delay"
+    id: vacant_delay
+    min_value: 0
+    max_value: 30
+    step: 1
+    initial_value: ${vacant_delay_initial}
+    optimistic: true
+    restore_value: true
+    unit_of_measurement: "s"
+
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: ${bed_sensor_pin}
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    name: "Occupancy"
+    id: occupancy
+    device_class: occupancy
+
+    filters:
+      - delayed_on: !lambda |-
+          return id(occupied_delay).state * 1000;
+
+      - delayed_off: !lambda |-
+          return id(vacant_delay).state * 1000;
+
+switch:
+  - platform: template
+    name: "Armed"
+    id: armed
+    optimistic: true                    # Assumes the switch changed state successfully
+    restore_mode: RESTORE_DEFAULT_ON    # Restores saved state; defaults to ON
+
+
+  - platform: template
+    name: "Nagging Mode"
+    id: mode
+    optimistic: true                    # Assumes the switch changed state successfully
+    restore_mode: RESTORE_DEFAULT_OFF   # Remembers last state; defaults to OFF

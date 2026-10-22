@@ -5,11 +5,7 @@ substitutions:
 
   name: bed-sensor
   friendly_name: Bed Sensor
-
-  api_encryption_key: "ne1UK/G+4eqgWv/9Yn6iRsfmXBdVWGoDa8mXpL+TgQg="
-  ota_password: "wPa3@#hV736n97!"
   ap_ssid: "Bed Sensor Fallback Hotspot"
-  ap_password: "n0tKHYQQDBAH"
   bed_sensor_pin: "GPIO13"
   occupied_delay_initial: 1
   vacant_delay_initial: 3
@@ -29,11 +25,11 @@ logger:
 # Enable Home Assistant API
 api:
   encryption:
-    key: ${api_encryption_key}
+    key: !secret bed_sensor__api_encryption_key
 
 ota:
   - platform: esphome
-    password: ${ota_password}
+    password: !secret ota_password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -42,7 +38,7 @@ wifi:
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: ${ap_ssid}
-    password: ${ap_password}
+    password: !secret bed_sensor__ap_password
 
 captive_portal:
 

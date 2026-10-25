@@ -1,4 +1,3 @@
-
 # Loads default set of integrations. Do not remove.
 default_config:
 
@@ -16,42 +15,35 @@ template:
 
         state: >
           {{
-            is_state('switch.bub_s_room_ihome_samsung_m5_outlet', 'on')
+            is_state('switch.bub_s_room_monitor_samsung_widescreen', 'on')
             or
-            is_state('switch.bub_s_room_ihome_samsung_widescreen_outlet', 'on')
-            or
-            is_state('switch.ihome_msi_monitor_outlet', 'on')
+            is_state('switch.bub_s_room_monitors_samsung_m5_and_msi', 'on')
           }}
 
         turn_on:
           - action: switch.turn_on
             target:
-              entity_id: switch.bub_s_room_ihome_samsung_m5_outlet
-
-          - action: switch.turn_on
-            target:
-              entity_id: switch.bub_s_room_ihome_samsung_widescreen_outlet
+              entity_id: switch.bub_s_room_monitor_samsung_widescreen
 
           - delay:
               seconds: 3
 
           - action: switch.turn_on
             target:
-              entity_id: switch.ihome_msi_monitor_outlet
+              entity_id: switch.bub_s_room_monitors_samsung_m5_and_msi
 
         turn_off:
           - action: switch.turn_off
             target:
               entity_id:
-                - switch.bub_s_room_ihome_samsung_m5_outlet
-                - switch.ihome_msi_monitor_outlet
+                - switch.bub_s_room_monitors_samsung_m5_and_msi
 
           - delay:
               seconds: 3
 
           - action: switch.turn_off
             target:
-              entity_id: switch.bub_s_room_ihome_samsung_widescreen_outlet
+              entity_id: switch.bub_s_room_monitor_samsung_widescreen
               
 # Exclude frequently updated FlightRadar24 sensors from the database
 recorder:
@@ -139,7 +131,28 @@ mqtt:
       payload_on: "ON"
       payload_off: "OFF"
       command_topic: "office/sign/config/background_color_power"
+      
+    - name: "Office Sign Preset Text Color"
+      unique_id: office_sign_preset_text_color
+      command_topic: "office/sign/preset/text_color_power"
+      state_topic: "office/sign/preset/state/text_color_power"
+      rgb_command_topic: "office/sign/preset/text_color"
+      rgb_state_topic: "office/sign/preset/state/text_color"
+      payload_on: "ON"
+      payload_off: "OFF"
+      
+    - name: "Office Sign Preset Border Color"
+      unique_id: office_sign_preset_border_color
+      command_topic: "office/sign/preset/border_color_power"
+      rgb_command_topic: "office/sign/preset/border_color"
+      rgb_state_topic: "office/sign/preset/state/border_color"
 
+    - name: "Office Sign Preset Background Color"
+      unique_id: office_sign_preset_background_color
+      command_topic: "office/sign/preset/background_color_power"
+      rgb_command_topic: "office/sign/preset/background_color"
+      rgb_state_topic: "office/sign/preset/state/background_color"
+      
   select:
     - name: "Office Sign Display Mode"
       unique_id: office_sign_display_mode
@@ -162,7 +175,22 @@ mqtt:
         - "RIGHT"
       icon: mdi:format-align-center
 
+    - name: "Office Sign Preset Editor"
+      unique_id: office_sign_preset_editor
+      command_topic: "office/sign/preset/select"
+      state_topic: "office/sign/preset/state/select"
+      options:
+        - "IN CLASS"
+        - "VIDEO CALL"
+        - "DO NOT DISTURB"
+        - "AVAILABLE"
+        - "BACK SOON"
+        - "AWAY"
+      icon: mdi:palette
 
-
-
-
+  button:
+    - name: "Office Sign Save Preset"
+      unique_id: office_sign_save_preset
+      command_topic: "office/sign/preset/save"
+      payload_press: "SAVE"
+      icon: mdi:content-save

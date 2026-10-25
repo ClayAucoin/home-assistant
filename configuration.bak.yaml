@@ -1,0 +1,168 @@
+
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+template:
+  - switch:
+      - name: "Bub's Room Monitors"
+        unique_id: bubs_room_monitors
+
+        state: >
+          {{
+            is_state('switch.bub_s_room_ihome_samsung_m5_outlet', 'on')
+            or
+            is_state('switch.bub_s_room_ihome_samsung_widescreen_outlet', 'on')
+            or
+            is_state('switch.ihome_msi_monitor_outlet', 'on')
+          }}
+
+        turn_on:
+          - action: switch.turn_on
+            target:
+              entity_id: switch.bub_s_room_ihome_samsung_m5_outlet
+
+          - action: switch.turn_on
+            target:
+              entity_id: switch.bub_s_room_ihome_samsung_widescreen_outlet
+
+          - delay:
+              seconds: 3
+
+          - action: switch.turn_on
+            target:
+              entity_id: switch.ihome_msi_monitor_outlet
+
+        turn_off:
+          - action: switch.turn_off
+            target:
+              entity_id:
+                - switch.bub_s_room_ihome_samsung_m5_outlet
+                - switch.ihome_msi_monitor_outlet
+
+          - delay:
+              seconds: 3
+
+          - action: switch.turn_off
+            target:
+              entity_id: switch.bub_s_room_ihome_samsung_widescreen_outlet
+              
+# Exclude frequently updated FlightRadar24 sensors from the database
+recorder:
+  exclude:
+    entity_globs:
+      - sensor.flightradar24*
+
+rest_command:
+  goxlr_mute_all:
+    url: "http://192.168.1.127:8766/mute"
+    method: get
+
+  goxlr_unmute:
+    url: "http://192.168.1.127:8766/unmute"
+    method: get
+
+  live_transcribe_open:
+    url: "http://192.168.1.220:1821/live-transcribe/open"
+    method: GET
+    timeout: 10
+
+  live_transcribe_export:
+    url: "http://192.168.1.220:1821/live-transcribe/export"
+    method: GET
+    timeout: 10
+
+  live_transcribe_close:
+    url: "http://192.168.1.220:1821/live-transcribe/close"
+    method: GET
+    timeout: 10
+
+mqtt:
+  number:
+    - name: "Office Sign Brightness"
+      unique_id: office_sign_brightness
+      command_topic: "office/sign/config/brightness"
+      state_topic: "office/sign/state/brightness"
+      min: 0
+      max: 255
+      step: 1
+      mode: slider
+      icon: mdi:brightness-6
+
+    - name: "Office Sign Border Thickness"
+      unique_id: office_sign_border_thickness
+      command_topic: "office/sign/config/border_width"
+      state_topic: "office/sign/state/border_width"
+      min: 0
+      max: 15
+      step: 1
+      mode: slider
+      icon: mdi:border-style
+
+    - name: "Office Sign Scroll Speed"
+      unique_id: office_sign_scroll_speed
+      command_topic: "office/sign/config/scroll_speed"
+      state_topic: "office/sign/state/scroll_speed"
+      min: 1
+      max: 10
+      step: 1
+      mode: slider
+      icon: mdi:speedometer
+
+  light:
+    - name: "Office Sign Text Color"
+      unique_id: office_sign_text_color
+      rgb_command_topic: "office/sign/config/text_color"
+      rgb_state_topic: "office/sign/state/text_color"
+      payload_on: "ON"
+      payload_off: "OFF"
+      command_topic: "office/sign/config/text_color_power"
+      
+    - name: "Office Sign Border Color"
+      unique_id: office_sign_border_color
+      rgb_command_topic: "office/sign/config/border_color"
+      rgb_state_topic: "office/sign/state/border_color"
+      payload_on: "ON"
+      payload_off: "OFF"
+      command_topic: "office/sign/config/border_color_power"
+
+    - name: "Office Sign Background Color"
+      unique_id: office_sign_background_color
+      rgb_command_topic: "office/sign/config/background_color"
+      rgb_state_topic: "office/sign/state/background_color"
+      payload_on: "ON"
+      payload_off: "OFF"
+      command_topic: "office/sign/config/background_color_power"
+
+  select:
+    - name: "Office Sign Display Mode"
+      unique_id: office_sign_display_mode
+      command_topic: "office/sign/config/display_mode"
+      state_topic: "office/sign/state/display_mode"
+      options:
+        - "AUTO"
+        - "SINGLE"
+        - "TWO LINE"
+        - "SCROLL"
+      icon: mdi:format-text
+
+    - name: "Office Sign Text Alignment"
+      unique_id: office_sign_text_alignment
+      command_topic: "office/sign/config/text_alignment"
+      state_topic: "office/sign/state/text_alignment"
+      options:
+        - "LEFT"
+        - "CENTER"
+        - "RIGHT"
+      icon: mdi:format-align-center
+
+
+
+
+

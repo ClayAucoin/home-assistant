@@ -1,0 +1,230 @@
+title: Home
+views:
+  - path: default_view
+    title: Floorplan
+    panel: true
+    icon: mdi:floor-plan
+    cards:
+      - type: picture-elements
+        image: /local/floor25/floor_off.png
+        elements:
+          - type: image
+            entity: light.stube
+            tap_action: none
+            hold_action: none
+            state_image:
+              'on': /local/floor25/Wohnzimmer.png
+              'off': /local/floor25/off_pixel.png
+              unavailable: /local/floor25/off_pixel.png
+            style:
+              top: 50%
+              left: 50%
+              width: 100%
+          - type: image
+            entity: light.esszimmer
+            tap_action: none
+            service_data:
+              entity_id: light.esszimmer
+            hold_action: none
+            state_image:
+              'on': /local/floor25/Esszimmer.png
+              'off': /local/floor25/off_pixel.png
+              unavailable: /local/floor25/off_pixel.png
+            style:
+              top: 50%
+              left: 50%
+              width: 100%
+          - type: image
+            entity: light.buro
+            tap_action: none
+            service_data:
+              entity_id: light.buro
+            hold_action: none
+            state_image:
+              'on': /local/floor25/office.png
+              'off': /local/floor25/off_pixel.png
+              unavailable: /local/floor25/off_pixel.png
+            style:
+              top: 50%
+              left: 50%
+              width: 100%
+          - type: image
+            entity: light.galerie
+            tap_action: none
+            service_data:
+              entity_id: light.galerie
+            hold_action: none
+            state_image:
+              'on': /local/floor25/galerie.png
+              'off': /local/floor25/off_pixel.png
+              unavailable: /local/floor25/off_pixel.png
+            style:
+              top: 50%
+              left: 50%
+              width: 100%
+          - type: image
+            entity: light.gang
+            tap_action: none
+            service_data:
+              entity_id: light.gang
+            hold_action: none
+            state_image:
+              'on': /local/floor25/Gang.png
+              'off': /local/floor25/off_pixel.png
+              unavailable: /local/floor25/off_pixel.png
+            style:
+              top: 50%
+              left: 50%
+              width: 100%
+          - type: image
+            entity: light.lampe_abstellkammer_1_licht
+            tap_action: none
+            service_data:
+              entity_id: light.lampe_abstellkammer_1_licht
+            hold_action: none
+            state_image:
+              'on': /local/floor25/gym.png
+              'off': /local/floor25/off_pixel.png
+              unavailable: /local/floor25/off_pixel.png
+            style:
+              top: 50%
+              left: 50%
+              width: 100%
+          - type: image
+            entity: light.werkstatt_licht_4
+            tap_action: none
+            service_data:
+              entity_id: light.werkstatt_licht_4
+            hold_action: none
+            state_image:
+              'on': /local/floor25/werkstatt.png
+              'off': /local/floor25/off_pixel.png
+              unavailable: /local/floor25/off_pixel.png
+            style:
+              top: 50%
+              left: 50%
+              width: 100%
+          - type: image
+            entity: light.stube
+            tap_action:
+              action: toggle
+            state_image:
+              'on': /local/floor25/Button/Wohnbereich_on.png
+              'off': /local/floor25/Button/Wohnbereich_off.png
+              unavailable: /local/home/off_pixel.png
+            style:
+              top: 31%
+              left: 13.2%
+              width: 23%
+          - type: image
+            entity: light.esszimmer
+            tap_action:
+              action: toggle
+            state_image:
+              'on': /local/floor25/Button/Esszimmer_on.png
+              'off': /local/floor25/Button/Esszimmer_off.png
+              unavailable: /local/floor25/Button/Esszimmer_off.png
+            style:
+              top: 47%
+              left: 13.2%
+              width: 23%
+          - type: image
+            entity: light.galerie
+            tap_action:
+              action: toggle
+            state_image:
+              'on': /local/floor25/Button/Galerie_on.png
+              'off': /local/floor25/Button/Galerie_off.png
+              unavailable: /local/home/off_pixel.png
+            style:
+              top: 55%
+              left: 13.2%
+              width: 23%
+          - type: image
+            entity: light.buro
+            tap_action:
+              action: toggle
+            state_image:
+              'on': /local/floor25/Button/Büro_on.png
+              'off': /local/floor25/Button/Büro_off.png
+              unavailable: /local/home/off_pixel.png
+            style:
+              top: 39%
+              left: 13.2%
+              width: 23%
+          - type: image
+            entity: light.gang
+            tap_action:
+              action: toggle
+            state_image:
+              'on': /local/floor25/Button/Eingang_on.png
+              'off': /local/floor25/Button/Eingang_off.png
+              unavailable: /local/home/off_pixel.png
+            style:
+              top: 63%
+              left: 13.2%
+              width: 23%
+          - type: image
+            entity: light.werkstatt_licht_4
+            tap_action:
+              action: toggle
+            state_image:
+              'on': /local/floor25/Button/Werkstatt_on.png
+              'off': /local/floor25/Button/Werkstatt_off.png
+              unavailable: /local/home/off_pixel.png
+            style:
+              top: 71%
+              left: 13.2%
+              width: 23%
+          - type: image
+            entity: light.lampe_abstellkammer_1_licht
+            tap_action:
+              action: toggle
+            state_image:
+              'on': /local/floor25/Button/abstell_on.png
+              'off': /local/floor25/Button/abstell_off.png
+              unavailable: /local/home/off_pixel.png
+            style:
+              top: 79%
+              left: 13.2%
+              width: 23%
+          - type: image
+            entity: light.alle_lichter
+            tap_action:
+              action: toggle
+            state_image:
+              'on': /local/floor25/Button/all_on.png
+              'off': /local/floor25/Button/all_off.png
+              unavailable: /local/home/off_pixel.png
+            style:
+              top: 23%
+              left: 13.2%
+              width: 23%
+          - type: image
+            entity: light.alle_lichter
+            image: /local/floor25/Button/plus.png
+            tap_action:
+              action: call-service
+              service: light.turn_on
+              service_data:
+                entity_id: light.alle_lichter
+                brightness_step_pct: 10
+            style:
+              top: 91%
+              left: 17.5%
+              width: 6.5%
+          - type: image
+            entity: light.alle_lichter
+            image: /local/floor25/Button/minus.png
+            tap_action:
+              action: call-service
+              service: light.turn_on
+              service_data:
+                entity_id: light.alle_lichter
+                brightness_step_pct: -10
+            style:
+              top: 91%
+              left: 9.5%
+              width: 6.5%
+
+# https://www.youtube.com/watch?v=q5Iec4_2TYs

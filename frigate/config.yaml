@@ -1,0 +1,119 @@
+auth:
+  reset_admin_password: false
+
+detectors:
+  ov:
+    type: openvino
+    device: GPU
+
+model:
+  model_type: ssd
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  path: /openvino-model/ssdlite_mobilenet_v2.xml
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+
+mqtt:
+  enabled: false
+
+go2rtc:
+  streams:
+    back_house_door:
+      - rtsp://clay_home_assistant:<password>@192.168.1.76:554/stream1
+
+    back_house_door_sub:
+      - rtsp://clay_home_assistant:<password>@192.168.1.76:554/stream2
+
+    bubs_office:
+      - rtsp://admin:<password>@192.168.1.74:554/Preview_01_main
+
+    bubs_office_sub:
+      - rtsp://admin:<password>@192.168.1.74:554/Preview_01_sub
+
+    front_driveway:
+      - rtsp://clay_home_assistant:<password>@192.168.1.70:554/stream1
+
+    front_driveway_sub:
+      - rtsp://clay_home_assistant:<password>@192.168.1.70:554/stream2
+
+ffmpeg:
+  hwaccel_args: preset-vaapi
+
+detect:
+  enabled: false
+
+record:
+  enabled: false
+
+snapshots:
+  enabled: false
+
+cameras:
+  back_house_door:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/back_house_door
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/back_house_door_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    motion:
+      enabled: true
+    detect:
+      enabled: true
+    objects:
+      track:
+        - person
+    record:
+      enabled: true
+      motion:
+        days: 3
+
+  bubs_office:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/bubs_office_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    detect:
+      enabled: true
+
+    objects:
+      track:
+        - person
+
+  front_driveway:
+    ffmpeg:
+      inputs:
+        - path: rtsp://127.0.0.1:8554/front_driveway
+          input_args: preset-rtsp-restream
+          roles:
+            - record
+        - path: rtsp://127.0.0.1:8554/front_driveway_sub
+          input_args: preset-rtsp-restream
+          roles:
+            - detect
+    detect:
+      enabled: true
+    objects:
+      track:
+        - person
+        - car
+    record:
+      enabled: true
+      alerts:
+        retain:
+          days: 7
+          mode: active_objects
+      detections:
+        retain:
+          days: 7
+          mode: active_objects
+
+version: 0.18-0

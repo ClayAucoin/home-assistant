@@ -1,0 +1,44 @@
+views:
+  - title: Floorplan
+    type: panel
+    path: first
+    badges: []
+    cards:
+      - type: horizontal-stack
+        cards:
+          - type: picture-elements
+            image: /local/
+            panel: true
+            elements:
+              - type: image
+                entity: <entity>
+                style:
+                  left: 50%
+                  top: 50%
+                  width: 100%
+                  mix-blend-mode: lighten
+                  filter: >-
+                    ${ "hue-rotate(" +
+                    (states[‘entity’].attributes.hs_color ?
+                    states[‘entity’].attributes.hs_color[0] : 0) +
+                    "deg)"}
+                  opacity: >-
+                    ${states[‘entity’].state === 'on' ?
+                    (states[‘entity’].attributes.brightness / 255)
+                    : '0'}
+                state_image:
+                  'on': /local/
+                  'off': /local/
+                tap_action:
+                  action: none
+
+              - type: state-icon
+                entity: <entity>
+                style:
+                  left: 5%
+                  top: 55%
+                  opacity: 
+                tap_action:
+                  action: toggle
+
+# https://www.youtube.com/watch?v=1KK-oREk0Oo

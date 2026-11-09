@@ -1,0 +1,1227 @@
+- id: '1788648208282'
+  alias: Bedtime Mode Control
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.bedtime_mode
+    from:
+    - 'off'
+    to:
+    - 'on'
+  - trigger: state
+    entity_id:
+    - input_boolean.bedtime_mode
+    from:
+    - 'on'
+    to:
+    - 'off'
+  conditions: []
+  actions:
+  - if:
+    - condition: state
+      entity_id: input_boolean.bedtime_mode
+      state:
+      - 'on'
+    then:
+    - action: script.go_to_bed
+      metadata: {}
+      data: {}
+    - action: notify.mobile_app_bub_s_phone
+      metadata: {}
+      data:
+        message: command_activity
+        data:
+          intent_package_name: sk.henrichg.phoneprofilesplus
+          intent_class_name: sk.henrichg.phoneprofilesplus.ActionForExternalApplicationActivity
+          intent_action: sk.henrichg.phoneprofilesplus.ACTION_ACTIVATE_PROFILE
+          intent_extras: profile_name:My Sleeping Profile
+    else:
+    - action: script.wake_up
+      metadata: {}
+      data: {}
+    - action: notify.mobile_app_bub_s_phone
+      metadata: {}
+      data:
+        message: command_activity
+        data:
+          intent_package_name: sk.henrichg.phoneprofilesplus
+          intent_class_name: sk.henrichg.phoneprofilesplus.ActionForExternalApplicationActivity
+          intent_action: sk.henrichg.phoneprofilesplus.ACTION_ACTIVATE_PROFILE
+          intent_extras: profile_name:My Home Profile
+  mode: single
+- id: '1788784628564'
+  alias: GoXLR All Faders Mute Control
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_boolean.goxlr_all_faders_muted
+    from:
+    - 'off'
+    to:
+    - 'on'
+  - trigger: state
+    entity_id:
+    - input_boolean.goxlr_all_faders_muted
+    from:
+    - 'on'
+    to:
+    - 'off'
+  conditions: []
+  actions:
+  - if:
+    - condition: state
+      entity_id: input_boolean.goxlr_all_faders_muted
+      state: 'on'
+    then:
+    - action: rest_command.goxlr_mute_all
+    else:
+    - action: rest_command.goxlr_unmute
+  mode: single
+- id: '1789173277049'
+  alias: Kitchen - Motion Lighting
+  description: Turn kitchen lights on based on ambient illuminance when motion is
+    detected.
+  triggers:
+  - trigger: state
+    entity_id: binary_sensor.kitchen_third_reality_motion
+    from: 'off'
+    to: 'on'
+  conditions:
+  - condition: state
+    entity_id: light.kitchen_light_main
+    state: 'off'
+  - condition: state
+    entity_id: light.kitchen_light_sink
+    state: 'off'
+  actions:
+  - variables:
+      kitchen_lux: '{{ states(''sensor.kitchen_third_reality_illuminance'') | float(999)
+        }}'
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ kitchen_lux <= 20 }}'
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id:
+          - light.kitchen_light_main
+          - light.kitchen_light_sink
+        data:
+          brightness_pct: 25
+    - conditions:
+      - condition: template
+        value_template: '{{ kitchen_lux <= 50 }}'
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id:
+          - light.kitchen_light_main
+          - light.kitchen_light_sink
+        data:
+          brightness_pct: 20
+    - conditions:
+      - condition: template
+        value_template: '{{ kitchen_lux <= 80 }}'
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id:
+          - light.kitchen_light_main
+          - light.kitchen_light_sink
+        data:
+          brightness_pct: 15
+  mode: single
+- id: '1789173669795'
+  alias: Kitchen - Hard Light Cutoff
+  description: Turn kitchen lights off after 30 minutes as a safety cutoff.
+  triggers:
+  - trigger: state
+    entity_id:
+    - light.kitchen_light_main
+    - light.kitchen_light_sink
+    to:
+    - 'on'
+    for:
+      hours: 0
+      minutes: 30
+      seconds: 0
+  conditions: []
+  actions:
+  - action: light.turn_off
+    target:
+      entity_id:
+      - light.kitchen_light_main
+      - light.kitchen_light_sink
+    data: {}
+  mode: restart
+- id: '1789174230279'
+  alias: Kitchen - No Motion Shutoff
+  description: Turn both kitchen lights off after no motion has been detected for
+    5 minutes.
+  triggers:
+  - trigger: state
+    entity_id: binary_sensor.kitchen_third_reality_motion
+    from: 'on'
+    to: 'off'
+    for:
+      minutes: 5
+  conditions: []
+  actions:
+  - action: light.turn_off
+    target:
+      entity_id:
+      - light.kitchen_light_main
+      - light.kitchen_light_sink
+  mode: restart
+- id: '1790048719463'
+  alias: Office Sign - Update Status
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id: input_select.office_sign_status
+  conditions: []
+  actions:
+  - action: mqtt.publish
+    metadata: {}
+    data:
+      evaluate_payload: false
+      qos: '0'
+      retain: true
+      topic: office/sign/message
+      payload: '{{ states(''input_select.office_sign_status'') }}'
+  mode: single
+- id: '1790465600414'
+  alias: Bub's AC - Set Corrected Target Temperature
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - input_number.bub_s_ac_target_temperature
+  conditions: []
+  actions:
+  - action: climate.set_temperature
+    metadata: {}
+    target:
+      entity_id: climate.bub_s_ac
+    data:
+      temperature: '{{ (states(''input_number.bub_s_ac_target_temperature'') | float
+        * 9 / 5 + 32) | round(0) }}
+
+        '
+  mode: single
+- id: '1790634319405'
+  alias: Office Sign - Class Calendar
+  description: ''
+  triggers:
+  - trigger: time_pattern
+    minutes: /1
+    id: calendar_tick
+  - trigger: time_pattern
+    minutes: /2
+    id: calendar_refresh
+  - trigger: state
+    entity_id: binary_sensor.video_call_bridge_video_call
+    from: 'off'
+    to: 'on'
+    id: video_call_started
+  - trigger: state
+    entity_id: binary_sensor.video_call_bridge_video_call
+    from: 'on'
+    to: 'off'
+    id: video_call_ended
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ trigger.id == ''calendar_refresh'' }}'
+      sequence:
+      - action: homeassistant.update_entity
+        target:
+          entity_id: calendar.class
+  - action: calendar.get_events
+    metadata: {}
+    target:
+      entity_id: calendar.class
+    data:
+      start_date_time: '{{ now() - timedelta(hours=1) }}'
+      duration:
+        hours: 25
+        minutes: 0
+        seconds: 0
+    response_variable: calendar_events
+  - variables:
+      lead_minutes: '{{ states(''input_number.office_sign_calendar_lead_time'') |
+        int(5) }}'
+      grace_minutes: '{{ states(''input_number.office_sign_calendar_grace_period'')
+        | int(5) }}'
+      reconnect_minutes: '{{ states(''input_number.office_sign_video_call_reconnect_grace'')
+        | int(5) }}'
+      show_end_time: '{{ is_state(''input_boolean.office_sign_show_end_time'', ''on'')
+        }}'
+      video_call_active: '{{ is_state(''binary_sensor.video_call_bridge_video_call'',
+        ''on'') }}'
+      events: '{{ calendar_events[''calendar.class''][''events''] }}'
+  - variables:
+      calendar_info: "{% set ns = namespace(\n  current_found=false,\n  current_start=none,\n
+        \ current_end=none,\n  block_active=false,\n  block_end=none\n) %}\n{% set
+        current = now() %} {% set lead = timedelta(minutes=lead_minutes | int) %}
+        {% set grace = timedelta(minutes=grace_minutes | int) %}\n{% for event in
+        events %}\n  {% set event_start = as_datetime(event.start) | as_local %}\n
+        \ {% set event_end = as_datetime(event.end) | as_local %}\n\n  {# Find the
+        individual event that currently owns the sign. #}\n  {% if not ns.current_found
+        %}\n    {% if current >= event_start - lead\n          and current < event_end
+        %}\n      {% set ns.current_found = true %}\n      {% set ns.current_start
+        = event_start %}\n      {% set ns.current_end = event_end %}\n    {% endif
+        %}\n  {% endif %}\n\n  {# Find the active continuous calendar block. #}\n
+        \ {% if not ns.block_active %}\n    {% if current >= event_start - lead\n
+        \         and current <= event_end + grace %}\n      {% set ns.block_active
+        = true %}\n      {% set ns.block_end = event_end %}\n    {% endif %}\n  {%
+        else %}\n    {% if event_start <= ns.block_end + grace %}\n      {% if event_end
+        > ns.block_end %}\n        {% set ns.block_end = event_end %}\n      {% endif
+        %}\n    {% endif %}\n  {% endif %}\n{% endfor %}\n{{ {\n  'current_found':
+        ns.current_found,\n  'current_start': ns.current_start.isoformat()\n    if
+        ns.current_start is not none else '',\n  'current_end': ns.current_end.isoformat()\n
+        \   if ns.current_end is not none else '',\n  'block_active': ns.block_active,\n
+        \ 'block_end': ns.block_end.isoformat()\n    if ns.block_end is not none else
+        ''\n} }}"
+  - variables:
+      video_call_off_minutes: "{% if not video_call_active %}\n  {{\n    (\n      as_timestamp(now())\n
+        \     -\n      as_timestamp(\n        states.binary_sensor.video_call_bridge_video_call.last_changed\n
+        \     )\n    ) / 60\n  }}\n{% else %}\n  0\n{% endif %}"
+      ended_event_end: '{{ states(''input_text.office_sign_early_ended_event_end'')
+        }}'
+      current_event_ended_early: "{{\n  calendar_info.current_found\n  and ended_event_end
+        not in ['', 'unknown', 'unavailable']\n  and calendar_info.current_end ==
+        ended_event_end\n}}"
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.office_sign_calendar_automation
+        state: 'on'
+      - condition: template
+        value_template: '{{ calendar_info.current_found }}'
+      - condition: template
+        value_template: '{{ not current_event_ended_early }}'
+      - condition: template
+        value_template: '{{ video_call_active }}'
+      sequence:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.office_sign_video_call_seen
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.office_sign_calendar_automation
+        state: 'on'
+      - condition: template
+        value_template: '{{ calendar_info.current_found }}'
+      - condition: template
+        value_template: '{{ not current_event_ended_early }}'
+      - condition: state
+        entity_id: input_boolean.office_sign_video_call_seen
+        state: 'on'
+      - condition: template
+        value_template: '{{ not video_call_active }}'
+      - condition: template
+        value_template: "{{ video_call_off_minutes | float(0)\n   >= reconnect_minutes
+          | float(5) }}"
+      sequence:
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.office_sign_early_ended_event_end
+        data:
+          value: '{{ calendar_info.current_end }}'
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.office_sign_video_call_seen
+  - variables:
+      active_event_ended_early: "{% set ended =\n  states('input_text.office_sign_early_ended_event_end')
+        %}\n\n{{\n  ended not in ['', 'unknown', 'unavailable']\n  and\n  (\n    (\n
+        \     calendar_info.current_found\n      and calendar_info.current_end ==
+        ended\n    )\n    or\n    (\n      not calendar_info.current_found\n      and
+        calendar_info.block_active\n      and calendar_info.block_end == ended\n    )\n
+        \ )\n}}"
+  - choose:
+    - conditions:
+      - condition: state
+        entity_id: input_boolean.office_sign_calendar_automation
+        state: 'on'
+      - condition: template
+        value_template: '{{ calendar_info.block_active }}'
+      - condition: template
+        value_template: '{{ not active_event_ended_early }}'
+      sequence:
+      - choose:
+        - conditions:
+          - condition: state
+            entity_id: input_boolean.office_sign_calendar_active
+            state: 'off'
+          sequence:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.office_sign_calendar_active
+      - variables:
+          sign_message: "{% if show_end_time %}\n  {% set end_time =\n    as_datetime(calendar_info.block_end)
+            | as_local %}\n\n  {% if end_time.minute == 0 %}\n    {% set formatted_end
+            = end_time.strftime('%-I') %}\n  {% else %}\n    {% set formatted_end
+            = end_time.strftime('%-I:%M') %}\n  {% endif %}\n\n  {{ 'IN CLASS\\nTIL
+            ' ~ formatted_end }}\n{% else %}\n  {{ 'IN CLASS' }}\n{% endif %}"
+      - action: switch.turn_on
+        target:
+          entity_id: switch.office_sign_display_power
+      - action: mqtt.publish
+        metadata: {}
+        data:
+          evaluate_payload: false
+          qos: '0'
+          topic: office/sign/config/render_preset
+          payload: IN CLASS
+      - action: mqtt.publish
+        metadata: {}
+        data:
+          evaluate_payload: false
+          qos: '0'
+          topic: office/sign/render_message
+          payload: '{{ sign_message }}'
+    - conditions:
+      - condition: template
+        value_template: '{{ video_call_active }}'
+      - condition: template
+        value_template: "{{\n  not (\n    is_state(\n      'input_boolean.office_sign_calendar_automation',\n
+          \     'on'\n    )\n    and calendar_info.block_active\n    and not active_event_ended_early\n
+          \ )\n}}"
+      sequence:
+      - action: switch.turn_on
+        target:
+          entity_id: switch.office_sign_display_power
+      - action: mqtt.publish
+        metadata: {}
+        data:
+          evaluate_payload: false
+          qos: '0'
+          topic: office/sign/config/render_preset
+          payload: VIDEO CALL
+      - action: mqtt.publish
+        metadata: {}
+        data:
+          evaluate_payload: false
+          qos: '0'
+          topic: office/sign/render_message
+          payload: VIDEO CALL
+    default:
+    - choose:
+      - conditions:
+        - condition: state
+          entity_id: input_boolean.office_sign_calendar_active
+          state: 'on'
+        sequence:
+        - action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.office_sign_calendar_active
+        - action: switch.turn_off
+          target:
+            entity_id: switch.office_sign_display_power
+        - action: mqtt.publish
+          metadata: {}
+          data:
+            evaluate_payload: false
+            qos: '0'
+            topic: office/sign/render_message
+            payload: ''
+    - choose:
+      - conditions:
+        - condition: template
+          value_template: '{{ trigger.id == ''video_call_ended'' }}'
+        - condition: template
+          value_template: "{{\n  not (\n    is_state(\n      'input_boolean.office_sign_calendar_automation',\n
+            \     'on'\n    )\n    and calendar_info.block_active\n    and not active_event_ended_early\n
+            \ )\n}}"
+        sequence:
+        - action: switch.turn_off
+          target:
+            entity_id: switch.office_sign_display_power
+        - action: mqtt.publish
+          metadata: {}
+          data:
+            evaluate_payload: false
+            qos: '0'
+            topic: office/sign/render_message
+            payload: ''
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ not calendar_info.block_active }}'
+      sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id:
+          - input_boolean.office_sign_calendar_active
+          - input_boolean.office_sign_video_call_seen
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.office_sign_early_ended_event_end
+        data:
+          value: ''
+  mode: queued
+  max: 10
+- id: '1790696252627'
+  alias: Wi-Fi Log - Bub's Phone - Wheats Connections & Disconnections
+  description: Log connections and disconnections from the Wheats work Wi-Fi network.
+  triggers:
+  - trigger: state
+    entity_id: sensor.bub_s_phone_wi_fi_connection
+  conditions:
+  - condition: template
+    value_template: "{{ trigger.from_state is not none\n   and trigger.to_state is
+      not none\n   and trigger.from_state.state not in ['unknown', 'unavailable',
+      '']\n   and trigger.to_state.state not in ['unknown', 'unavailable', '']\n   and
+      trigger.from_state.state != trigger.to_state.state }}\n"
+  actions:
+  - variables:
+      from_wifi: '{{ trigger.from_state.state }}'
+      to_wifi: '{{ trigger.to_state.state }}'
+      from_tracked: '{{ from_wifi == ''Wheats'' }}
+
+        '
+      to_tracked: '{{ to_wifi == ''Wheats'' }}
+
+        '
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ to_tracked and not from_tracked }}'
+      sequence:
+      - action: google_sheets.append_sheet
+        data:
+          add_created_column: false
+          config_entry: 01M3PTV2QKS8G163WA02Z42EPJ
+          worksheet: Time Sheet Data
+          data:
+            Timestamp: '{{ now().strftime(''%m/%d/%Y %-I:%M %p'') }}'
+            Date: '{{ now().strftime(''%m/%d/%Y'') }}'
+            Event: Connected
+            Wi‑Fi Network: '{{ to_wifi }}'
+    - conditions:
+      - condition: template
+        value_template: '{{ from_tracked and not to_tracked }}'
+      sequence:
+      - action: google_sheets.append_sheet
+        data:
+          add_created_column: false
+          config_entry: 01M3PTV2QKS8G163WA02Z42EPJ
+          worksheet: Time Sheet Data
+          data:
+            Timestamp: '{{ now().strftime(''%m/%d/%Y %-I:%M %p'') }}'
+            Date: '{{ now().strftime(''%m/%d/%Y'') }}'
+            Event: Disconnected
+            Wi‑Fi Network: '{{ from_wifi }}'
+    - conditions:
+      - condition: template
+        value_template: '{{ from_tracked and to_tracked and from_wifi != to_wifi }}'
+      sequence:
+      - action: google_sheets.append_sheet
+        data:
+          add_created_column: false
+          config_entry: 01M3PTV2QKS8G163WA02Z42EPJ
+          worksheet: Time Sheet Data
+          data:
+            Timestamp: '{{ now().strftime(''%m/%d/%Y %-I:%M %p'') }}'
+            Date: '{{ now().strftime(''%m/%d/%Y'') }}'
+            Event: Disconnected
+            Wi‑Fi Network: '{{ from_wifi }}'
+      - action: google_sheets.append_sheet
+        data:
+          add_created_column: false
+          config_entry: 01M3PTV2QKS8G163WA02Z42EPJ
+          worksheet: Time Sheet Data
+- id: '1791135453571'
+  alias: Wi-Fi Log - Bub's Phone - All Wi-Fi Connections & Disconnections
+  description: Log all Wi-Fi connections and disconnections.
+  triggers:
+  - trigger: state
+    entity_id: sensor.bub_s_phone_wi_fi_connection
+  conditions:
+  - condition: template
+    value_template: "{{ trigger.from_state is not none\n   and trigger.to_state is
+      not none\n   and trigger.from_state.state != trigger.to_state.state }}\n"
+  actions:
+  - variables:
+      from_wifi: '{{ trigger.from_state.state }}'
+      to_wifi: '{{ trigger.to_state.state }}'
+      invalid_states:
+      - unknown
+      - unavailable
+      - ''
+  - if:
+    - condition: template
+      value_template: '{{ from_wifi not in invalid_states }}'
+    then:
+    - action: google_sheets.append_sheet
+      data:
+        add_created_column: false
+        config_entry: 01M43YMMWZPACJWR4TCWA5DC3N
+        worksheet: Time Sheet Data
+        data:
+          Timestamp: '{{ now().strftime(''%m/%d/%Y %-I:%M %p'') }}'
+          Date: '{{ now().strftime(''%m/%d/%Y'') }}'
+          Event: Disconnected
+          Wi-Fi Network: '{{ from_wifi }}'
+  - if:
+    - condition: template
+      value_template: '{{ to_wifi not in invalid_states }}'
+    then:
+    - action: google_sheets.append_sheet
+      data:
+        add_created_column: false
+        config_entry: 01M43YMMWZPACJWR4TCWA5DC3N
+        worksheet: Time Sheet Data
+        data:
+          Timestamp: '{{ now().strftime(''%m/%d/%Y %-I:%M %p'') }}'
+          Date: '{{ now().strftime(''%m/%d/%Y'') }}'
+          Event: Connected
+          Wi-Fi Network: '{{ to_wifi }}'
+  mode: queued
+  max: 10
+- id: '1791265326515'
+  alias: Front Door - Auto Lock
+  description: 'Lock the front door 1 minute after unlocking from 7 PM to 7 AM, or
+    10 minutes after unlocking from 7 AM to 7 PM.
+
+    '
+  triggers:
+  - trigger: state
+    entity_id: lock.front_door
+    to: unlocked
+    id: unlocked
+  - trigger: state
+    entity_id: lock.front_door
+    to: locked
+    id: locked
+  - trigger: event
+    event_type: timer.finished
+    event_data:
+      entity_id: timer.front_door_auto_lock
+    id: timer_finished
+  - trigger: homeassistant
+    event: start
+    id: ha_started
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: unlocked
+      sequence:
+      - action: timer.start
+        target:
+          entity_id: timer.front_door_auto_lock
+        data:
+          duration: "{% if now().hour >= 19 or now().hour < 7 %}\n  00:01:00\n{% else
+            %}\n  00:10:00\n{% endif %}\n"
+    - conditions:
+      - condition: trigger
+        id: locked
+      sequence:
+      - action: timer.cancel
+        target:
+          entity_id: timer.front_door_auto_lock
+    - conditions:
+      - condition: trigger
+        id: timer_finished
+      - condition: state
+        entity_id: lock.front_door
+        state: unlocked
+      sequence:
+      - action: lock.lock
+        target:
+          entity_id: lock.front_door
+    - conditions:
+      - condition: trigger
+        id: ha_started
+      - condition: state
+        entity_id: lock.front_door
+        state: unlocked
+      sequence:
+      - delay: 00:00:15
+      - condition: state
+        entity_id: lock.front_door
+        state: unlocked
+      - action: timer.start
+        target:
+          entity_id: timer.front_door_auto_lock
+        data:
+          duration: "{% if now().hour >= 19 or now().hour < 7 %}\n  00:01:00\n{% else
+            %}\n  00:10:00\n{% endif %}\n"
+  mode: restart
+- id: '1791329121901'
+  alias: Bed Sensor - Bedside Fan
+  description: ''
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.bub_s_room_bed_sensor_occupancy
+    from:
+    - 'off'
+    to:
+    - 'on'
+    id: '1'
+  - trigger: state
+    entity_id:
+    - binary_sensor.bub_s_room_bed_sensor_occupancy
+    id: '2'
+    from:
+    - 'on'
+    to:
+    - 'off'
+  conditions:
+  - condition: state
+    entity_id: input_boolean.bedtime_mode
+    state: 'on'
+  - condition: device
+    type: is_on
+    device_id: 6b176353c54270ec87ff2f719c98f8ed
+    entity_id: de944016706549649ebb81975a718ecf
+    domain: switch
+  - condition: time
+    after: '12:00:00'
+    before: '12:00:00'
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id:
+        - '1'
+      sequence:
+      - action: switch.turn_on
+        metadata: {}
+        target:
+          entity_id: switch.bub_s_room_ihome_outlet_fan_by_bed
+        data: {}
+    - conditions:
+      - condition: trigger
+        id:
+        - '2'
+      sequence:
+      - action: switch.turn_off
+        metadata: {}
+        target:
+          entity_id: switch.bub_s_room_ihome_outlet_fan_by_bed
+        data: {}
+  mode: single
+- id: '1791408207773'
+  alias: Laundry - Washer - Cycle Finished
+  description: Notify me when the washing machine stops moving for 3 minutes.
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.back_house_multi_sensor_on_washer_accelerometer
+    from: 'on'
+    to: 'off'
+    for:
+      minutes: 3
+  conditions: []
+  actions:
+  - action: notify.mobile_app_bub_s_phone
+    data:
+      title: Washing Machine
+      message: The washing machine has finished.
+  mode: restart
+- id: '1791413630439'
+  alias: Laundry - Dryer - Finished
+  description: Notify me when the dryer stops moving for 3 minutes.
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.back_house_multi_sensor_on_dryer_accelerometer
+    from: 'on'
+    to: 'off'
+    for:
+      minutes: 3
+  conditions: []
+  actions:
+  - action: notify.mobile_app_bub_s_phone
+    data:
+      title: Dryer
+      message: The dryer has finished.
+  mode: restart
+- id: '1791926865580'
+  alias: Changing Area - Privacy Position
+  description: 'Return to Guard immediately when the door opens. Move to Privacy when
+    the door closes while the mat is occupied. Ignore new mat activations during the
+    10-second door pause. Return to Guard after the mat is vacant for 10 seconds.
+
+    '
+  triggers:
+  - trigger: state
+    entity_id: binary_sensor.smart_things_multiv4_bub_s_door
+    to: 'on'
+    id: door_opened
+  - trigger: state
+    entity_id: binary_sensor.smart_things_multiv4_bub_s_door
+    from: 'on'
+    to: 'off'
+    id: door_closed
+  - trigger: state
+    entity_id: binary_sensor.bub_s_room_changing_area_occupancy
+    to: 'on'
+    id: privacy
+  - trigger: state
+    entity_id: binary_sensor.bub_s_room_changing_area_occupancy
+    to: 'off'
+    for:
+      seconds: 10
+    id: normal
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: door_opened
+      sequence:
+      - action: select.select_option
+        target:
+          entity_id: select.bub_s_room_back_office_inside_ptz_preset
+        data:
+          option: '1'
+      - action: timer.start
+        target:
+          entity_id: timer.changing_area_door_pause
+        data:
+          duration: 00:00:10
+    - conditions:
+      - condition: state
+        entity_id: binary_sensor.smart_things_multiv4_bub_s_door
+        state: 'off'
+      - condition: state
+        entity_id: binary_sensor.bub_s_room_changing_area_occupancy
+        state: 'on'
+      - condition: or
+        conditions:
+        - condition: trigger
+          id: door_closed
+        - condition: and
+          conditions:
+          - condition: trigger
+            id: privacy
+          - condition: state
+            entity_id: timer.changing_area_door_pause
+            state: idle
+      sequence:
+      - action: select.select_option
+        target:
+          entity_id: select.bub_s_room_back_office_inside_ptz_preset
+        data:
+          option: '0'
+    - conditions:
+      - condition: trigger
+        id: normal
+      - condition: state
+        entity_id: binary_sensor.bub_s_room_changing_area_occupancy
+        state: 'off'
+      sequence:
+      - action: select.select_option
+        target:
+          entity_id: select.bub_s_room_back_office_inside_ptz_preset
+        data:
+          option: '1'
+  mode: queued
+  max: 10
+- id: '1792929194380'
+  alias: Bub's Room - Arrival and Departure
+  description: 'Control bedroom lights, AC, and monitors based on SmartThings Arrival
+    Sensor presence.
+
+    '
+  triggers:
+  - trigger: state
+    entity_id: device_tracker.bub_s_arrival_tag_device_scanner
+    from: home
+    to: not_home
+    id: leaving
+  - trigger: state
+    entity_id: device_tracker.bub_s_arrival_tag_device_scanner
+    from: not_home
+    to: home
+    id: arriving
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: leaving
+      sequence:
+      - action: light.turn_off
+        target:
+          entity_id: light.bub_s_room_bub_s_lights
+      - action: climate.set_temperature
+        target:
+          entity_id: climate.bub_s_ac
+        data:
+          temperature: 72
+      - delay: 00:15:00
+      - condition: state
+        entity_id: device_tracker.bub_s_arrival_tag_device_scanner
+        state: not_home
+      - action: switch.turn_off
+        target:
+          entity_id:
+          - switch.bub_s_room_monitors_ihome_outlet_samsung_widescreen
+          - switch.bub_s_room_monitors_ihome_samsung_m5_and_msi
+    - conditions:
+      - condition: trigger
+        id: arriving
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.bub_s_room_bub_s_lights
+        data:
+          brightness_pct: 100
+      - action: climate.set_temperature
+        target:
+          entity_id: climate.bub_s_ac
+        data:
+          temperature: 70
+      - action: switch.turn_on
+        target:
+          entity_id: switch.bub_s_room_monitors_ihome_outlet_samsung_widescreen
+      - delay: 00:00:03
+      - action: switch.turn_on
+        target:
+          entity_id: switch.bub_s_room_monitors_ihome_samsung_m5_and_msi
+  mode: restart
+- id: '1792997783057'
+  alias: Bub's Room - Camera Privacy LED Indicator
+  description: 'Change monitor LEDs to red when Home Assistant commands Privacy, and
+    blue when it commands Guard. Preserve current brightness.
+
+    '
+  triggers:
+  - trigger: event
+    event_type: call_service
+    event_data:
+      domain: select
+      service: select_option
+  conditions:
+  - condition: template
+    value_template: "{% set entities =\n  trigger.event.data.service_data.get('entity_id',
+      []) %}\n{% set camera =\n  'select.bub_s_room_back_office_inside_ptz_preset'
+      %}\n{{ entities == camera if entities is string\n   else camera in entities
+      }}\n"
+  actions:
+  - choose:
+    - conditions:
+      - condition: template
+        value_template: '{{ trigger.event.data.service_data.get(''option'') | string
+          == ''1'' }}
+
+          '
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.bub_s_room_bub_s_leds
+        data:
+          rgb_color:
+          - 0
+          - 0
+          - 255
+    - conditions:
+      - condition: template
+        value_template: '{{ trigger.event.data.service_data.get(''option'') | string
+          == ''0'' }}
+
+          '
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.bub_s_room_bub_s_leds
+        data:
+          rgb_color:
+          - 0
+          - 255
+          - 0
+  mode: queued
+  max: 10
+- id: '1793360314571'
+  alias: Amazfit T-Rex 3 - Low Battery Alert
+  description: Notify when watch battery reaches 20% or below, including after Home
+    Assistant restarts.
+  triggers:
+  - trigger: numeric_state
+    entity_id: sensor.t_rex_3_battery
+    below: 21
+    id: low_battery
+  - trigger: homeassistant
+    event: start
+    id: ha_restart
+  conditions:
+  - condition: numeric_state
+    entity_id: sensor.t_rex_3_battery
+    below: 21
+  actions:
+  - action: notify.mobile_app_sm_g988u1
+    data:
+      title: T-Rex 3 Battery Low
+      message: Your Amazfit T-Rex 3 battery is at {{ states('sensor.t_rex_3_battery')
+        }}%. Time to charge your watch!
+  mode: single
+- id: '1793469643730'
+  alias: Front Room - Motion Lighting
+  description: 'Turn on the front room light at 50% when motion is detected, the light
+    is off, and kitchen illuminance is 50 lux or lower. Preserve brightness if the
+    light is already on. Turn off after 5 minutes without motion.
+
+    '
+  triggers:
+  - trigger: state
+    entity_id: binary_sensor.front_room_third_reality_motion_sensor
+    to: 'on'
+    id: motion_detected
+  - trigger: state
+    entity_id: binary_sensor.front_room_third_reality_motion_sensor
+    to: 'off'
+    for:
+      minutes: 5
+    id: motion_cleared
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: motion_detected
+      - condition: state
+        entity_id: light.front_room_front_room_light
+        state: 'off'
+      - condition: numeric_state
+        entity_id: sensor.kitchen_third_reality_illuminance
+        below: 51
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.front_room_front_room_light
+        data:
+          brightness_pct: 50
+    - conditions:
+      - condition: trigger
+        id: motion_cleared
+      sequence:
+      - action: light.turn_off
+        target:
+          entity_id: light.front_room_front_room_light
+  mode: restart
+- id: '1793475496481'
+  alias: Porch - Automatic Lighting
+  description: Turn porch lights on at sunset and off at 10 PM.
+  triggers:
+  - trigger: sun
+    event: sunset
+    id: sunset
+  - trigger: time
+    at: '22:00:00'
+    id: lights_off
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: sunset
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.porch_lights
+    - conditions:
+      - condition: trigger
+        id: lights_off
+      sequence:
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.porch_color_cycling
+      - action: script.turn_off
+        target:
+          entity_id: script.porch_color_cycling
+      - action: light.turn_off
+        target:
+          entity_id: light.porch_lights
+  mode: single
+- id: '1793475588432'
+  alias: Porch - Color Cycling Control
+  description: Start or stop the porch color cycling script.
+  triggers:
+  - trigger: state
+    entity_id: input_boolean.porch_color_cycling
+    to: 'on'
+    id: start
+  - trigger: state
+    entity_id: input_boolean.porch_color_cycling
+    to: 'off'
+    id: stop
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: start
+      sequence:
+      - action: script.turn_on
+        target:
+          entity_id: script.porch_color_cycling
+    - conditions:
+      - condition: trigger
+        id: stop
+      sequence:
+      - action: script.turn_off
+        target:
+          entity_id: script.porch_color_cycling
+  mode: restart
+- id: '1793731159847'
+  alias: Porch - Aqara H2 Smart Bulb Control
+  description: 'Control both Philips Hue porch bulbs using the Aqara H2 in Decoupled
+    Mode. Power toggles the lights and stops color cycling when active. Up and Down
+    adjust brightness by 10% without changing their colors.
+
+    '
+  triggers:
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: 54:ef:44:10:01:81:bc:4c
+      command: 1_single
+    id: power
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: 54:ef:44:10:01:81:bc:4c
+      command: 2_single
+    id: brightness_up
+  - trigger: event
+    event_type: zha_event
+    event_data:
+      device_ieee: 54:ef:44:10:01:81:bc:4c
+      command: 3_single
+    id: brightness_down
+  conditions: []
+  actions:
+  - choose:
+    - conditions:
+      - condition: trigger
+        id: power
+      sequence:
+      - if:
+        - condition: state
+          entity_id: input_boolean.porch_color_cycling
+          state: 'on'
+        then:
+        - action: input_boolean.turn_off
+          target:
+            entity_id: input_boolean.porch_color_cycling
+        - action: script.turn_off
+          target:
+            entity_id: script.porch_color_cycling
+      - action: light.toggle
+        target:
+          entity_id: light.porch_lights
+    - conditions:
+      - condition: trigger
+        id: brightness_up
+      - condition: state
+        entity_id: light.porch_lights
+        state: 'on'
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.porch_lights
+        data:
+          brightness: '{{ [255, (state_attr(''light.porch_lights'', ''brightness'')
+            | int(255)) + 26] | min }}
+
+            '
+    - conditions:
+      - condition: trigger
+        id: brightness_down
+      - condition: state
+        entity_id: light.porch_lights
+        state: 'on'
+      sequence:
+      - action: light.turn_on
+        target:
+          entity_id: light.porch_lights
+        data:
+          brightness: '{{ [3, (state_attr(''light.porch_lights'', ''brightness'')
+            | int(255)) - 26] | max }}
+
+            '
+  mode: queued
+  max: 10
+- id: '1793734700194'
+  alias: Porch - Aqara H2 Indicator Sync
+  description: 'Synchronize the Aqara H2 green indicator with the Philips Hue porch
+    bulbs without changing the dimmer output.
+
+    '
+  triggers:
+  - trigger: state
+    entity_id: light.porch_lights
+    to: 'on'
+  - trigger: state
+    entity_id: light.porch_lights
+    to: 'off'
+  - trigger: homeassistant
+    event: start
+  conditions:
+  - condition: template
+    value_template: '{{ states(''light.porch_lights'') in [''on'', ''off''] }}
+
+      '
+  actions:
+  - action: zha.set_zigbee_cluster_attribute
+    data:
+      ieee: 54:ef:44:10:01:81:bc:4c
+      endpoint_id: 1
+      cluster_id: 64704
+      cluster_type: in
+      attribute: 515
+      value: '{{ 1 if is_state(''light.porch_lights'', ''on'') else 0 }}'
+  mode: restart
+- id: '1794193698739'
+  alias: Bub's Room - WLED Mode and Brightness
+  description: 'Control WLED based on changing-area occupancy, door state, camera
+    privacy position, and Bedtime Mode.
+
+    '
+  triggers:
+  - trigger: state
+    entity_id:
+    - binary_sensor.bub_s_room_changing_area_occupancy
+    - binary_sensor.smart_things_multiv4_bub_s_door
+    - input_boolean.bedtime_mode
+  - trigger: event
+    event_type: timer.finished
+    event_data:
+      entity_id: timer.changing_area_door_pause
+  - trigger: homeassistant
+    event: start
+  actions:
+  - variables:
+      privacy_mode: "{{ is_state('binary_sensor.bub_s_room_changing_area_occupancy',
+        'on')\n   and is_state('binary_sensor.smart_things_multiv4_bub_s_door', 'off')\n
+        \  and is_state('timer.changing_area_door_pause', 'idle') }}\n"
+      bedtime: '{{ is_state(''input_boolean.bedtime_mode'', ''on'') }}
+
+        '
+      target_preset: "{{ 'Changing Area Chase' if privacy_mode\n   else 'Normal Blue'
+        }}\n"
+      target_brightness: "{% if privacy_mode %}\n  {{ 4 if bedtime else 20 }}\n{%
+        else %}\n  {{ 1 if bedtime else 20 }}\n{% endif %}\n"
+  - action: select.select_option
+    target:
+      entity_id: select.bub_s_room_bub_s_leds_preset
+    data:
+      option: '{{ target_preset }}'
+  - delay:
+      seconds: 1
+  - action: light.turn_on
+    target:
+      entity_id: light.bub_s_room_bub_s_leds
+    data:
+      brightness_pct: '{{ target_brightness | int }}'
+  mode: restart

@@ -1,0 +1,184 @@
+wake_up:
+  alias: Wake Up
+  sequence:
+  - action: select.select_option
+    target:
+      entity_id: select.bub_s_room_back_office_inside_ptz_preset
+    data:
+      option: '0'
+  - action: switch.turn_off
+    target:
+      entity_id: switch.bub_s_room_ihome_outlet_fan_by_bed
+  - action: switch.turn_on
+    target:
+      entity_id: switch.bub_s_room_monitors
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.goxlr_all_faders_muted
+  - action: light.turn_on
+    target:
+      entity_id: light.bub_s_room_bub_s_lights
+    data:
+      brightness_pct: 75
+  mode: single
+  icon: mdi:weather-sunny
+go_to_bed:
+  alias: Go to Bed
+  sequence:
+  - action: switch.turn_on
+    target:
+      entity_id: switch.bub_s_room_ihome_outlet_fan_by_bed
+  - action: light.turn_on
+    target:
+      entity_id: light.bub_s_room_bub_s_lights
+    data:
+      brightness_pct: 0
+  - action: switch.turn_off
+    target:
+      entity_id: switch.bub_s_room_monitors
+  - action: input_boolean.turn_on
+    target:
+      entity_id: input_boolean.goxlr_all_faders_muted
+  mode: single
+  icon: mdi:bed
+live_transcribe_open:
+  alias: Live Transcribe Open
+  sequence:
+  - action: rest_command.live_transcribe_open
+  mode: single
+  icon: mdi:microphone
+live_transcribe_export:
+  alias: Live Transcribe Export
+  sequence:
+  - action: rest_command.live_transcribe_export
+  mode: single
+  icon: mdi:export
+live_transcribe_close:
+  alias: Live Transcribe Close
+  sequence:
+  - action: rest_command.live_transcribe_close
+  mode: single
+  icon: mdi:close-circle
+office_sign_send_custom_message:
+  sequence:
+  - action: mqtt.publish
+    metadata: {}
+    data:
+      evaluate_payload: false
+      qos: '0'
+      retain: true
+      topic: office/sign/message
+      payload: '{{ states(''input_text.office_sign_custom_message'') }}'
+  alias: Office Sign - Send Custom Message
+  description: ''
+office_sign_calendar_test:
+  sequence:
+  - action: calendar.get_events
+    metadata: {}
+    target:
+      entity_id: calendar.class
+    data:
+      start_date_time: '2026-09-26 00:00:00'
+      end_date_time: '2026-09-28 00:00:00'
+    response_variable: calendar_events
+  - action: notify.persistent_notification
+    metadata: {}
+    data:
+      message: "{% set events = calendar_events['calendar.class']['events'] %}\n{%
+        set lead = states('input_number.office_sign_calendar_lead_time') | int(0)
+        %}\n{% set grace = states('input_number.office_sign_calendar_grace_period')
+        | int(0) %}\n\n{# Temporary simulated time for testing: 2:57 PM #}\n{% set
+        test_now = now() %}\n\n{% set ns = namespace(\n  block_start=none,\n  block_end=none,\n
+        \ active_start=none,\n  active_end=none\n) %}\n\n{% for event in events %}\n
+        \ {% set event_start = as_datetime(event.start) %}\n  {% set event_end = as_datetime(event.end)
+        %}\n\n  {% if ns.block_start is none %}\n    {% set ns.block_start = event_start
+        %}\n    {% set ns.block_end = event_end %}\n\n  {% elif event_start <= ns.block_end
+        %}\n    {% if event_end > ns.block_end %}\n      {% set ns.block_end = event_end
+        %}\n    {% endif %}\n\n  {% else %}\n    {% set sign_start = ns.block_start
+        - timedelta(minutes=lead) %}\n    {% set sign_end = ns.block_end + timedelta(minutes=grace)
+        %}\n\n    {% if sign_start <= test_now <= sign_end %}\n      {% set ns.active_start
+        = ns.block_start %}\n      {% set ns.active_end = ns.block_end %}\n    {%
+        endif %}\n\n    {% set ns.block_start = event_start %}\n    {% set ns.block_end
+        = event_end %}\n  {% endif %}\n{% endfor %}\n\n{# Check the final block too
+        #}\n{% if ns.block_start is not none %}\n  {% set sign_start = ns.block_start
+        - timedelta(minutes=lead) %}\n  {% set sign_end = ns.block_end + timedelta(minutes=grace)
+        %}\n\n  {% if sign_start <= test_now <= sign_end %}\n    {% set ns.active_start
+        = ns.block_start %}\n    {% set ns.active_end = ns.block_end %}\n  {% endif
+        %}\n{% endif %}\n\nCurrent Time: {{ test_now }}\nActive: {{ ns.active_start
+        is not none }}\nBlock Start: {{ ns.active_start }}\nBlock End: {{ ns.active_end
+        }}"
+      title: Office Sign Calendar Test
+  alias: Office Sign Calendar Test
+  description: ''
+porch_color_cycling:
+  alias: Porch - Color Cycling
+  description: Cycle two Hue bulbs in synchronized or independent modes.
+  mode: restart
+  sequence:
+  - repeat:
+      while:
+      - condition: state
+        entity_id: input_boolean.porch_color_cycling
+        state:
+        - 'on'
+      sequence:
+      - variables:
+          mode: '{{ states(''input_select.porch_color_mode'') }}'
+          color_1: '{{ states(''input_select.porch_color_1'') | lower }}'
+          color_2: '{{ states(''input_select.porch_color_2'') | lower }}'
+          seconds: '{{ states(''input_number.porch_transition_seconds'') | int(10)
+            }}'
+          first_color: "{% set colors = {\n  'orange': [255, 100, 0],\n  'purple':
+            [128, 0, 255],\n  'red': [255, 0, 0],\n  'green': [0, 255, 0],\n  'blue':
+            [0, 0, 255],\n  'white': [255, 255, 255]\n} %} {{ colors.get(color_1,
+            [255, 100, 0]) }}\n"
+          second_color: "{% set colors = {\n  'orange': [255, 100, 0],\n  'purple':
+            [128, 0, 255],\n  'red': [255, 0, 0],\n  'green': [0, 255, 0],\n  'blue':
+            [0, 0, 255],\n  'white': [255, 255, 255]\n} %} {{ colors.get(color_2,
+            [128, 0, 255]) }}\n"
+      - action: light.turn_on
+        target:
+          entity_id: light.porch_philips_hue_bulb_1
+        data:
+          rgb_color: '{{ first_color }}'
+          transition: '{{ seconds }}'
+      - action: light.turn_on
+        target:
+          entity_id: light.porch_philips_hue_bulb_2
+        data:
+          rgb_color: "{{ first_color if mode == 'Synchronized'\n   else second_color
+            }}\n"
+          transition: '{{ seconds }}'
+      - delay:
+          seconds: '{{ seconds }}'
+      - action: light.turn_on
+        target:
+          entity_id: light.porch_philips_hue_bulb_1
+        data:
+          rgb_color: '{{ second_color }}'
+          transition: '{{ seconds }}'
+      - action: light.turn_on
+        target:
+          entity_id: light.porch_philips_hue_bulb_2
+        data:
+          rgb_color: "{{ second_color if mode == 'Synchronized'\n   else first_color
+            }}\n"
+          transition: '{{ seconds }}'
+      - delay:
+          seconds: '{{ seconds }}'
+camera_privacy_for_10_seconds:
+  alias: Camera - Privacy for 10 Seconds
+  description: Turn the camera away for 10 seconds, then return to normal.
+  sequence:
+  - action: select.select_option
+    target:
+      entity_id: select.bub_s_room_back_office_inside_ptz_preset
+    data:
+      option: '0'
+  - delay: 00:00:10
+  - action: select.select_option
+    target:
+      entity_id: select.bub_s_room_back_office_inside_ptz_preset
+    data:
+      option: '1'
+  mode: restart

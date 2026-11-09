@@ -1,0 +1,233 @@
+# Loads default set of integrations. Do not remove.
+default_config:
+
+# Load frontend themes from the themes folder
+frontend:
+  themes: !include_dir_merge_named themes
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml
+template:
+  - switch:
+      - name: "Bub's Room Monitors"
+        unique_id: bubs_room_monitors
+
+        state: >
+          {{
+            is_state('switch.bub_s_room_monitors_ihome_outlet_samsung_widescreen', 'on')
+            or
+            is_state('switch.bub_s_room_monitors_ihome_samsung_m5_and_msi', 'on')
+          }}
+
+        turn_on:
+          - action: switch.turn_on
+            target:
+              entity_id: switch.bub_s_room_monitors_ihome_outlet_samsung_widescreen
+
+          - delay:
+              seconds: 3
+
+          - action: switch.turn_on
+            target:
+              entity_id: switch.bub_s_room_monitors_ihome_samsung_m5_and_msi
+
+        turn_off:
+          - action: switch.turn_off
+            target:
+              entity_id:
+                - switch.bub_s_room_monitors_ihome_samsung_m5_and_msi
+
+          - delay:
+              seconds: 3
+
+          - action: switch.turn_off
+            target:
+              entity_id: switch.bub_s_room_monitors_ihome_outlet_samsung_widescreen
+
+# Exclude frequently updated FlightRadar24 sensors from the database
+recorder:
+  exclude:
+    entity_globs:
+      - sensor.flightradar24*
+
+rest_command:
+  goxlr_mute_all:
+    url: "http://192.168.1.127:8766/mute"
+    method: get
+
+  goxlr_unmute:
+    url: "http://192.168.1.127:8766/unmute"
+    method: get
+
+  live_transcribe_open:
+    url: "http://192.168.1.220:1821/live-transcribe/open"
+    method: GET
+    timeout: 10
+
+  live_transcribe_export:
+    url: "http://192.168.1.220:1821/live-transcribe/export"
+    method: GET
+    timeout: 10
+
+  live_transcribe_close:
+    url: "http://192.168.1.220:1821/live-transcribe/close"
+    method: GET
+    timeout: 10
+
+mqtt:
+  switch:
+    - name: "Office Sign Display Power"
+      unique_id: office_sign_display_power
+      command_topic: "office/sign/config/display_power"
+      state_topic: "office/sign/state/display_power"
+      availability_topic: "office/sign/status"
+      payload_on: "ON"
+      payload_off: "OFF"
+      payload_available: "online"
+      payload_not_available: "offline"
+      icon: mdi:monitor
+
+  number:
+    - name: "Office Sign Brightness"
+      unique_id: office_sign_brightness
+      command_topic: "office/sign/config/brightness"
+      state_topic: "office/sign/state/brightness"
+      min: 0
+      max: 255
+      step: 1
+      mode: slider
+      icon: mdi:brightness-6
+
+    - name: "Office Sign Border Thickness"
+      unique_id: office_sign_border_thickness
+      command_topic: "office/sign/config/border_width"
+      state_topic: "office/sign/state/border_width"
+      min: 0
+      max: 15
+      step: 1
+      mode: slider
+      icon: mdi:border-style
+
+    - name: "Office Sign Scroll Speed"
+      unique_id: office_sign_scroll_speed
+      command_topic: "office/sign/config/scroll_speed"
+      state_topic: "office/sign/state/scroll_speed"
+      min: 1
+      max: 10
+      step: 1
+      mode: slider
+      icon: mdi:speedometer
+
+  light:
+    - name: "Office Sign Text Color"
+      unique_id: office_sign_text_color
+      rgb_command_topic: "office/sign/config/text_color"
+      rgb_state_topic: "office/sign/state/text_color"
+      payload_on: "ON"
+      payload_off: "OFF"
+      command_topic: "office/sign/config/text_color_power"
+
+    - name: "Office Sign Border Color"
+      unique_id: office_sign_border_color
+      rgb_command_topic: "office/sign/config/border_color"
+      rgb_state_topic: "office/sign/state/border_color"
+      payload_on: "ON"
+      payload_off: "OFF"
+      command_topic: "office/sign/config/border_color_power"
+
+    - name: "Office Sign Background Color"
+      unique_id: office_sign_background_color
+      rgb_command_topic: "office/sign/config/background_color"
+      rgb_state_topic: "office/sign/state/background_color"
+      payload_on: "ON"
+      payload_off: "OFF"
+      command_topic: "office/sign/config/background_color_power"
+
+    - name: "Office Sign Preset Text Color"
+      unique_id: office_sign_preset_text_color
+      command_topic: "office/sign/preset/text_color_power"
+      state_topic: "office/sign/preset/state/text_color_power"
+      rgb_command_topic: "office/sign/preset/text_color"
+      rgb_state_topic: "office/sign/preset/state/text_color"
+      payload_on: "ON"
+      payload_off: "OFF"
+
+    - name: "Office Sign Preset Border Color"
+      unique_id: office_sign_preset_border_color
+      command_topic: "office/sign/preset/border_color_power"
+      rgb_command_topic: "office/sign/preset/border_color"
+      rgb_state_topic: "office/sign/preset/state/border_color"
+
+    - name: "Office Sign Preset Background Color"
+      unique_id: office_sign_preset_background_color
+      command_topic: "office/sign/preset/background_color_power"
+      rgb_command_topic: "office/sign/preset/background_color"
+      rgb_state_topic: "office/sign/preset/state/background_color"
+
+  select:
+    - name: "Office Sign Display Mode"
+      unique_id: office_sign_display_mode
+      command_topic: "office/sign/config/display_mode"
+      state_topic: "office/sign/state/display_mode"
+      options:
+        - "AUTO"
+        - "SINGLE"
+        - "TWO LINE"
+        - "SCROLL"
+      icon: mdi:format-text
+
+    - name: "Office Sign Text Alignment"
+      unique_id: office_sign_text_alignment
+      command_topic: "office/sign/config/text_alignment"
+      state_topic: "office/sign/state/text_alignment"
+      options:
+        - "LEFT"
+        - "CENTER"
+        - "RIGHT"
+      icon: mdi:format-align-center
+
+    - name: "Office Sign Preset Editor"
+      unique_id: office_sign_preset_editor
+      command_topic: "office/sign/preset/select"
+      state_topic: "office/sign/preset/state/select"
+      options:
+        - "IN CLASS"
+        - "VIDEO CALL"
+        - "DO NOT DISTURB"
+        - "AVAILABLE"
+        - "BACK SOON"
+        - "AWAY"
+      icon: mdi:palette
+
+  button:
+    - name: "Office Sign Save Preset"
+      unique_id: office_sign_save_preset
+      command_topic: "office/sign/preset/save"
+      payload_press: "SAVE"
+      icon: mdi:content-save
+
+zha:
+  custom_quirks_path: /config/custom_zha_quirks
+
+# Google Home voice control
+google_assistant:
+  project_id: ha-voice-integration-2026
+  service_account: !include google_service_account.json
+  report_state: true
+  expose_by_default: false
+  entity_config:
+    switch.bub_s_room_monitors:
+      expose: true
+      name: "Bub's Room Monitors"
+      aliases:
+        - "Bedroom Monitors"
+        - "Computer Monitors"
+
+emulated_hue:
+  listen_port: 80
+  expose_by_default: false
+  entities:
+    light.bub_s_room_bub_s_lights:
+      name: "Clay's Light"
+      hidden: false
